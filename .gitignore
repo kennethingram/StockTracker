@@ -1,0 +1,21 @@
+# Environment variables and secrets
+.env
+config.local.js
+
+# API keys (never commit these!)
+**/api-keys.json
+
+# Node modules (if we add any later)
+node_modules/
+
+# System files
+.DS_Store
+.vscode/
+*.log
+
+# Build files
+dist/
+build/
+
+# Netlify
+.netlify/

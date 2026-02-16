@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StockTracker - Portfolio Management</title>
+    
+    <!-- Our custom stylesheet -->
+    <link rel="stylesheet" href="css/styles.css">
+    
+    <!-- Google Identity Services (for OAuth login) -->
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    
+    <!-- PDF.js library for reading PDFs -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script>
+        // Configure PDF.js worker
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    </script>
+</head>
+<body>
+    <!-- Main App Container -->
+    <div id="app">
+        
+        <!-- Login Screen (shown when not authenticated) -->
+        <div id="login-screen" class="screen active">
+            <div class="login-container">
+                <h1>📊 StockTracker</h1>
+                <p class="tagline">Your portfolio, your data, your control</p>
+                
+                <div class="features">
+                    <div class="feature">
+                        <span class="icon">🔒</span>
+                        <span>Secure Google Drive storage</span>
+                    </div>
+                    <div class="feature">
+                        <span class="icon">🤖</span>
+                        <span>AI-powered contract parsing</span>
+                    </div>
+                    <div class="feature">
+                        <span class="icon">📈</span>
+                        <span>Multi-broker support</span>
+                    </div>
+                </div>
+                
+                <!-- Google Sign-In Button -->
+                <button id="google-signin-btn" class="btn-primary">
+                    Sign in with Google
+                </button>
+                
+                <p class="privacy-note">
+                    🔐 Your data stays in your Google Drive. We never store it on our servers.
+                </p>
+            </div>
+        </div>
+        
+        <!-- Dashboard Screen (shown after login) -->
+        <div id="dashboard-screen" class="screen">
+            
+            <!-- Navigation Bar -->
+            <nav class="navbar">
+                <div class="nav-brand">
+                    <h2>📊 StockTracker</h2>
+                </div>
+                <div class="nav-menu">
+                    <button class="nav-btn active" data-view="overview">Overview</button>
+                    <button class="nav-btn" data-view="holdings">Holdings</button>
+                    <button class="nav-btn" data-view="transactions">Transactions</button>
+                    <button class="nav-btn" data-view="accounts">Accounts</button>
+                    <button class="nav-btn" data-view="sync">Sync</button>
+                </div>
+                <div class="nav-actions">
+                    <span id="user-email" class="user-email"></span>
+                    <button id="signout-btn" class="btn-secondary">Sign Out</button>
+                </div>
+            </nav>
+            
+            <!-- Main Content Area -->
+            <main class="content">
+                
+                <!-- Overview View -->
+                <div id="overview-view" class="view active">
+                    <h1>Portfolio Overview</h1>
+
+                    <!-- Filters Bar -->
+                    <div class="filters-bar">
+                        <div class="filter-section">
+                            <div class="filter-group">
+                                <label>Accounts</label>
+                                <div id="overview-account-filters" class="filter-checkboxes">
+                                    <!-- Populated by JS -->
+                                </div>
+                            </div>
+                            <div class="filter-group">
+                                <label>Account Holders</label>
+                                <div id="overview-holder-filters" class="filter-checkboxes">
+                                    <!-- Populated by JS -->
+                                </div>
+                            </div>
+                        </div>
+                        <div class="filter-actions">
+                            <button class="btn-secondary btn-small" onclick="UI.clearFilters('overview')">Clear Filters</button>
+                            <button class="btn-primary btn-small" onclick="UI.showSaveFavoriteModal('overview')">💾 Save as Favorite</button>
+                        </div>
+                    </div>
+                    
+                    <!-- Favorites Bar -->
+                    <div id="overview-favorites-bar" class="favorites-bar">
+                        <!-- Populated by JS -->
+                    </div>
+                    
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-label">Total Portfolio Value</div>
+                            <div class="stat-value" id="total-value">$0.00</div>
+                            <div class="stat-subvalue" id="value-currency">CAD</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">Total Invested</div>
+                            <div class="stat-value" id="total-invested">$0.00</div>
+                            <div class="stat-subvalue" id="invested-currency">CAD</div>
+                        </div>
+                        <div class="stat-card stat-card-highlight">
+                            <div class="stat-label">Total Profit/Loss</div>
+                            <div class="stat-value" id="total-pl">$0.00</div>
+                            <div class="stat-subvalue" id="total-pl-percent">0.0%</div>
+                        </div>
+                        <div class="stat-card stat-card-highlight">
+                            <div class="stat-label">Annualized Return (ARR)</div>
+                            <div class="stat-value" id="total-arr">0.0%</div>
+                            <div class="stat-subvalue" id="arr-subtext">Portfolio weighted</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">Total Positions</div>
+                            <div class="stat-value" id="total-positions">0</div>
+                            <div class="stat-subvalue">Holdings</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">Accounts</div>
+                            <div class="stat-value" id="total-accounts">0</div>
+                            <div class="stat-subvalue">Active accounts</div>
+                        </div>
+                    </div>
+                    
+                    <div class="recent-transactions">
+                        <h2>Recent Transactions</h2>
+                        <div id="recent-transactions-list">
+                            <p class="empty-state">No transactions yet. Click "Sync" to process contract notes.</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Holdings View -->
+                <div id="holdings-view" class="view">
+                    <h1>Current Holdings</h1>
+
+                    <!-- Filters Bar -->
+                    <div class="filters-bar">
+                        <div class="filter-section">
+                            <div class="filter-group">
+                                <label>Accounts</label>
+                                <div id="holdings-account-filters" class="filter-checkboxes">
+                                    <!-- Populated by JS -->
+                                </div>
+                            </div>
+                            <div class="filter-group">
+                                <label>Account Holders</label>
+                                <div id="holdings-holder-filters" class="filter-checkboxes">
+                                    <!-- Populated by JS -->
+                                </div>
+                            </div>
+                        </div>
+                        <div class="filter-actions">
+                            <button class="btn-secondary btn-small" onclick="UI.clearFilters('holdings')">Clear Filters</button>
+                            <button class="btn-primary btn-small" onclick="UI.showSaveFavoriteModal('holdings')">💾 Save as Favorite</button>
+                        </div>
+                    </div>
+                    
+                    <!-- Favorites Bar -->
+                    <div id="holdings-favorites-bar" class="favorites-bar">
+                        <!-- Populated by JS -->
+                    </div>
+                    
+                    <div id="holdings-list">
+                        <p class="empty-state">No holdings yet.</p>
+                    </div>
+                </div>
+                
+                <!-- Transactions View -->
+                <div id="transactions-view" class="view">
+                    <h1>All Transactions</h1>
+
+                     <!-- Filters Bar -->
+                    <div class="filters-bar">
+                        <div class="filter-section">
+                            <div class="filter-group">
+                                <label>Accounts</label>
+                                <div id="transactions-account-filters" class="filter-checkboxes">
+                                    <!-- Populated by JS -->
+                                </div>
+                            </div>
+                            <div class="filter-group">
+                                <label>Account Holders</label>
+                                <div id="transactions-holder-filters" class="filter-checkboxes">
+                                    <!-- Populated by JS -->
+                                </div>
+                            </div>
+                        </div>
+                        <div class="filter-actions">
+                            <button class="btn-secondary btn-small" onclick="UI.clearFilters('transactions')">Clear Filters</button>
+                            <button class="btn-primary btn-small" onclick="UI.showSaveFavoriteModal('transactions')">💾 Save as Favorite</button>
+                        </div>
+                    </div>
+                    
+                    <!-- Favorites Bar -->
+                    <div id="transactions-favorites-bar" class="favorites-bar">
+                        <!-- Populated by JS -->
+                    </div>
+                    
+                    <div id="transactions-list">
+                        <p class="empty-state">No transactions yet.</p>
+                    </div>
+                </div>
+                
+                <!-- Sync View -->
+                <div id="sync-view" class="view">
+                    <h1>Sync Contract Notes</h1>
+                    
+                    <div class="sync-info">
+                        <p>📁 Connected to Google Drive folder: <strong id="folder-name">Not set</strong></p>
+                        <button id="select-folder-btn" class="btn-primary">Select Drive Folder</button>
+                    </div>
+                    
+                    <div class="sync-actions">
+                        <button id="scan-new-files-btn" class="btn-primary">
+                            🔍 Scan for New Contract Notes
+                        </button>
+                        <button id="process-all-btn" class="btn-secondary">
+                            ⚡ Process All Unprocessed Files
+                        </button>
+                    </div>
+                    
+                    <div id="sync-status" class="sync-status">
+                        <!-- Status messages will appear here -->
+                    </div>
+                    
+                    <div id="new-files-list" class="files-list">
+                        <!-- New files will be listed here -->
+                    </div>
+                </div>
+                <!-- Accounts View -->
+                <div id="accounts-view" class="view">
+                    <h1>Account Management</h1>
+                    
+                    <div class="account-actions">
+                        <button id="add-account-btn" class="btn-primary">
+                            ➕ Add New Account
+                        </button>
+                    </div>
+                    
+                    <div id="accounts-list" class="accounts-list">
+                        <p class="empty-state">No accounts yet. Click "Add New Account" to create one.</p>
+                    </div>
+                    
+                    <!-- Account Form Modal (hidden by default) -->
+                    <div id="account-modal" class="modal">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h2 id="modal-title">Add New Account</h2>
+                                <button class="modal-close" id="close-modal-btn">&times;</button>
+                            </div>
+                            <div class="modal-body">
+                                <form id="account-form">
+                                    <div class="form-group">
+                                        <label for="account-name">Account Name *</label>
+                                        <input type="text" id="account-name" required placeholder="e.g., Schwab Trading Account">
+                                    </div>
+                                    
+                                    <div class="form-group">
+                                        <label for="account-number">Account Number *</label>
+                                        <input type="text" id="account-number" required placeholder="e.g., XXXX-12345">
+                                    </div>
+                                    
+                                    <div class="form-group">
+                                        <label for="broker-name">Broker</label>
+                                        <input type="text" id="broker-name" placeholder="e.g., Charles Schwab">
+                                    </div>
+
+                                     <div class="form-group">
+                                        <label for="account-holders">Account Holders *</label>
+                                        <input type="text" id="account-holders" required placeholder="e.g., Kenneth Ingram, Mathangi Ingram">
+                                        <small style="color: #718096; font-size: 0.85em; margin-top: 5px; display: block;">
+                                            Separate multiple holders with commas
+                                        </small>
+                                    </div>
+
+                                    <div class="form-group">
+                                        <label for="account-type">Account Type *</label>
+                                        <select id="account-type" required>
+                                            <option value="">Select type...</option>
+                                        </select>
+                                    </div>
+                                    
+                                    <div class="form-group">
+                                        <label for="account-currency">Default Currency *</label>
+                                        <select id="account-currency" required>
+                                            <option value="">Select currency...</option>
+                                        </select>
+                                    </div>
+                                    
+                                    <div class="form-group">
+                                        <label for="account-notes">Notes</label>
+                                        <textarea id="account-notes" rows="3" placeholder="Optional notes about this account"></textarea>
+                                    </div>
+                                    
+                                    <div class="form-actions">
+                                        <button type="button" class="btn-secondary" id="cancel-account-btn">Cancel</button>
+                                        <button type="submit" class="btn-primary">Save Account</button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+        
+        <!-- Loading Overlay (shown during operations) -->
+        <div id="loading-overlay" class="loading-overlay">
+            <div class="spinner"></div>
+            <p id="loading-message">Loading...</p>
+        </div>
+        
+        <!-- Favorite Save Modal (hidden by default) -->
+        <div id="favorite-modal" class="modal">
+            <div class="modal-content" style="max-width: 500px;">
+                <div class="modal-header">
+                    <h2>Save Current View as Favorite</h2>
+                    <button class="modal-close" onclick="UI.hideFavoriteModal()">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <form id="favorite-form" onsubmit="event.preventDefault(); UI.saveFavorite();">
+                        <div class="form-group">
+                            <label for="favorite-name">Favorite Name *</label>
+                            <input type="text" id="favorite-name" required placeholder="e.g., My TFSA Accounts">
+                        </div>
+                        
+                        <div id="favorite-summary" style="background: #f7fafc; padding: 15px; border-radius: 8px; margin: 15px 0;">
+                            <strong>Current Filters:</strong>
+                            <div id="favorite-summary-content" style="margin-top: 10px; color: #4a5568;">
+                                <!-- Populated by JS -->
+                            </div>
+                        </div>
+                        
+                        <div class="form-actions">
+                            <button type="button" class="btn-secondary" onclick="UI.hideFavoriteModal()">Cancel</button>
+                            <button type="submit" class="btn-primary">💾 Save Favorite</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+
+    </div>
+    
+    <!-- Load configuration first -->
+    <script src="config.js"></script>
+    
+    <!-- Load all modules -->
+    <script src="modules/auth.js"></script>
+    <script src="modules/drive.js"></script>
+    <script src="modules/database.js"></script>
+    <script src="modules/currency.js"></script>
+    <script src="modules/prices.js"></script>
+    <script src="modules/parser.js"></script>
+    <script src="modules/portfolio.js"></script>
+    <script src="modules/ui.js"></script>
+    
+    <!-- Load parsers -->
+    <script src="parsers/claude-parser.js"></script>
+    
+    <!-- Initialize the app -->
+    <script>
+        // This runs when the page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('StockTracker initializing...');
+            
+            // Initialize UI module
+            if (typeof UI !== 'undefined') {
+                UI.init();
+            }
+        });
+    </script>
+</body>
+</html>
