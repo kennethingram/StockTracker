@@ -12,7 +12,7 @@ const CONFIG = {
     googleClientId: '562186675674-1lsb34607tcrl3a4q9vm4iv4qrueo09b.apps.googleusercontent.com',
 
     // Gemini API settings
-    geminiApiKey: 'YOUR_GEMINI_API_KEY_HERE',      // ← Replace with placeholder
+    geminiApiKey: 'AIzaSyAaw1oERewpTDPGwdu-2a6yqIqcPUIkDic',      // ← Replace with placeholder
     
     // Google Drive folder where contract notes are stored
     // Leave empty for now - we'll set this up later
