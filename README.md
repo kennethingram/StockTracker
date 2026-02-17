@@ -154,7 +154,7 @@ See [BACKLOG.md](BACKLOG.md) for full list.
 ### v1.2
 - [ ] UI redesign (color scheme, layouts)
 - [ ] Transaction editing
-- [ ] Performance charts
+- [ ] Performance chartsgit add
 
 ### v2.0
 - [ ] Advanced analytics
