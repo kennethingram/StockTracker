@@ -204,7 +204,7 @@ const UI = {
      * Update the Overview view
      * Shows portfolio summary stats
      */
-     updateOverview: function() {
+     updateOverview: async function() {
         console.log('Updating overview...');
         
         if (typeof Portfolio === 'undefined' || typeof Database === 'undefined') {
@@ -228,7 +228,7 @@ const UI = {
         };
         
         // Calculate portfolio stats with filtered data
-        const stats = Portfolio.calculatePortfolioStats(filteredData);
+        const stats = await Portfolio.calculatePortfolioStats(filteredData);
         
         // Update stat cards
         document.getElementById('total-value').textContent = 
@@ -314,8 +314,8 @@ const UI = {
             html += `<td style="padding: 10px; font-weight: 600;">${txn.symbol}</td>`;
             html += `<td style="padding: 10px;"><span style="padding: 4px 8px; border-radius: 4px; background: ${txn.type === 'buy' ? '#c6f6d5' : '#fed7d7'}; color: ${txn.type === 'buy' ? '#22543d' : '#742a2a'};">${txn.type.toUpperCase()}</span></td>`;
             html += `<td style="padding: 10px; text-align: right;">${txn.quantity}</td>`;
-            html += `<td style="padding: 10px; text-align: right;">${this.formatCurrency(txn.price)}</td>`;
-            html += `<td style="padding: 10px; text-align: right; font-weight: 600;">${this.formatCurrency(txn.total)}</td>`;
+            html += `<td style="padding: 10px; text-align: right;">${this.formatCurrency(txn.price, txn.currency)}</td>`;
+            html += `<td style="padding: 10px; text-align: right; font-weight: 600;">${this.formatCurrency(txn.total, txn.currency)}</td>`;
             html += '</tr>';
         });
         
@@ -327,7 +327,7 @@ const UI = {
      * Update Holdings view
      * Shows current positions
      */
-     updateHoldings: function() {
+     updateHoldings: async function() {
         console.log('Updating holdings...');
         
         if (typeof Portfolio === 'undefined' || typeof Database === 'undefined') {
@@ -346,7 +346,7 @@ const UI = {
             transactions: filteredTxns
         };
         
-        const stats = Portfolio.calculatePortfolioStats(filteredData);
+        const stats = await Portfolio.calculatePortfolioStats(filteredData);
         const holdings = stats.holdings;
         
         const listEl = document.getElementById('holdings-list');
@@ -360,6 +360,9 @@ const UI = {
         
         holdings.forEach(holding => {
             const perf = holding.performance;
+            
+            // Use price currency from API if available, else fall back to holding currency
+            const priceCurrency = perf.priceCurrency || holding.currency;
             
             // Determine P/L color
             let plClass = 'neutral';
@@ -390,9 +393,11 @@ const UI = {
                         </div>
                         <div style="text-align: right;">
                             <div style="font-size: 1.2em; font-weight: 600; color: #667eea;">
-                                ${perf.currentPrice ? this.formatCurrency(perf.currentPrice) : 'Price N/A'}
+                                ${perf.currentPrice 
+                                    ? this.formatCurrency(perf.currentPrice, priceCurrency) 
+                                    : 'Price N/A'}
                             </div>
-                            <div style="color: #718096; font-size: 0.9em;">Current Price</div>
+                            <div style="color: #718096; font-size: 0.9em;">Current Price (${priceCurrency})</div>
                         </div>
                     </div>
                     
@@ -402,17 +407,19 @@ const UI = {
                             <div style="font-weight: 600; color: #2d3748; font-size: 1.3em;">${holding.quantity} shares</div>
                         </div>
                         <div>
-                            <div style="color: #718096; font-size: 0.9em;">Avg Cost</div>
-                            <div style="font-weight: 600; color: #2d3748;">${this.formatCurrency(holding.avgCostInBase)}</div>
+                            <div style="color: #718096; font-size: 0.9em;">Avg Cost (${holding.currency})</div>
+                            <div style="font-weight: 600; color: #2d3748;">${this.formatCurrency(holding.avgCostInBase, holding.currency)}</div>
                         </div>
                         <div>
-                            <div style="color: #718096; font-size: 0.9em;">Total Cost</div>
-                            <div style="font-weight: 600; color: #2d3748;">${this.formatCurrency(holding.totalCostInBase)}</div>
+                            <div style="color: #718096; font-size: 0.9em;">Total Cost (${holding.currency})</div>
+                            <div style="font-weight: 600; color: #2d3748;">${this.formatCurrency(holding.totalCostInBase, holding.currency)}</div>
                         </div>
                         <div>
-                            <div style="color: #718096; font-size: 0.9em;">Current Value</div>
+                            <div style="color: #718096; font-size: 0.9em;">Current Value (${priceCurrency})</div>
                             <div style="font-weight: 600; color: #2d3748;">
-                                ${perf.currentValueInBase ? this.formatCurrency(perf.currentValueInBase) : 'N/A'}
+                                ${perf.currentValueInBase 
+                                    ? this.formatCurrency(perf.currentValueInBase, priceCurrency) 
+                                    : 'N/A'}
                             </div>
                         </div>
                     </div>
@@ -421,9 +428,9 @@ const UI = {
                     <div style="margin-top: 20px; padding-top: 20px; border-top: 2px solid #e2e8f0;">
                         <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px;">
                             <div>
-                                <div style="color: #718096; font-size: 0.9em; margin-bottom: 5px;">Profit/Loss</div>
+                                <div style="color: #718096; font-size: 0.9em; margin-bottom: 5px;">Profit/Loss (${priceCurrency})</div>
                                 <div style="font-size: 1.4em; font-weight: 700;" class="${plClass}">
-                                    ${plSign}${this.formatCurrency(Math.abs(perf.gainLoss))}
+                                    ${plSign}${this.formatCurrency(Math.abs(perf.gainLoss), priceCurrency)}
                                 </div>
                                 <div style="color: #718096; font-size: 0.95em; margin-top: 3px;">
                                     ${plSign}${perf.gainLossPercent.toFixed(2)}%
@@ -482,6 +489,7 @@ const UI = {
         html += '<thead><tr style="border-bottom: 2px solid #e2e8f0; background: #f7fafc;">';
         html += '<th style="padding: 15px; text-align: left;">Date</th>';
         html += '<th style="padding: 15px; text-align: left;">Symbol</th>';
+        html += '<th style="padding: 15px; text-align: left;">Exchange</th>';
         html += '<th style="padding: 15px; text-align: left;">Type</th>';
         html += '<th style="padding: 15px; text-align: right;">Quantity</th>';
         html += '<th style="padding: 15px; text-align: right;">Price</th>';
@@ -489,7 +497,6 @@ const UI = {
         html += '<th style="padding: 15px; text-align: right;">Total</th>';
         html += '<th style="padding: 15px; text-align: left;">Account</th>';
         html += '<th style="padding: 15px; text-align: left;">Actions</th>';
-        html += '</tr></thead><tbody>';
         html += '</tr></thead><tbody>';
         
         // Show newest first
@@ -499,11 +506,12 @@ const UI = {
             html += '<tr style="border-bottom: 1px solid #e2e8f0;">';
             html += `<td style="padding: 15px;">${txn.date}</td>`;
             html += `<td style="padding: 15px; font-weight: 600;">${txn.symbol}</td>`;
+            html += `<td style="padding: 15px; color: #718096; font-size: 0.9em;">${txn.exchange || 'Auto'}</td>`;
             html += `<td style="padding: 15px;"><span style="padding: 4px 8px; border-radius: 4px; background: ${txn.type === 'buy' ? '#c6f6d5' : '#fed7d7'}; color: ${txn.type === 'buy' ? '#22543d' : '#742a2a'};">${txn.type.toUpperCase()}</span></td>`;
             html += `<td style="padding: 15px; text-align: right;">${txn.quantity}</td>`;
-            html += `<td style="padding: 15px; text-align: right;">${this.formatCurrency(txn.price)}</td>`;
-            html += `<td style="padding: 15px; text-align: right;">${this.formatCurrency(txn.fees || 0)}</td>`;
-            html += `<td style="padding: 15px; text-align: right; font-weight: 600;">${this.formatCurrency(txn.total)}</td>`;
+            html += `<td style="padding: 15px; text-align: right;">${this.formatCurrency(txn.price, txn.currency)}</td>`;
+            html += `<td style="padding: 15px; text-align: right;">${this.formatCurrency(txn.fees || 0, txn.currency)}</td>`;
+            html += `<td style="padding: 15px; text-align: right; font-weight: 600;">${this.formatCurrency(txn.total, txn.currency)}</td>`;
             html += `<td style="padding: 15px;">${txn.accountId || 'N/A'}</td>`;
             html += `<td style="padding: 15px;">
                 <button class="btn-secondary btn-small" onclick="UI.deleteTransaction('${txn.id}')">🗑️ Delete</button>
@@ -599,15 +607,32 @@ const UI = {
     
     /**
      * Format number as currency
+     * Accepts optional currency code to show correct symbol
      */
-     formatCurrency: function(amount) {
+    formatCurrency: function(amount, currency = null) {
         if (typeof amount !== 'number') {
             amount = parseFloat(amount) || 0;
         }
-        return new Intl.NumberFormat('en-US', {
-            style: 'currency',
-            currency: 'USD'
-        }).format(amount);
+        
+        // Use provided currency, or fall back to base currency
+        const currencyCode = currency || CONFIG.baseCurrency;
+        
+        // Get currency symbol from config
+        const currencyInfo = CONFIG.supportedCurrencies.find(c => c.code === currencyCode);
+        const symbol = currencyInfo ? currencyInfo.symbol : currencyCode;
+        
+        // Format the number with 2 decimal places and thousands separator
+        const formatted = Math.abs(amount).toLocaleString('en-US', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        });
+        
+        // Handle negative amounts
+        if (amount < 0) {
+            return `-${symbol}${formatted}`;
+        }
+        
+        return `${symbol}${formatted}`;
     },
     
     /**
@@ -637,9 +662,9 @@ const UI = {
             toast.style.animation = 'slideOut 0.3s ease';
             setTimeout(() => toast.remove(), 300);
         }, 3000);
-    }, //missing comma prior to next function
+    },
 
-/**
+    /**
      * Set up account management buttons
      */
      setupAccountButtons: function() {
@@ -999,69 +1024,19 @@ const UI = {
         return type ? type.label : typeValue;
     },
 
-
     /**
      * Initialize filters system
      */
      initializeFilters: function() {
         console.log('Initializing filters...');
-        // Filters will be populated when views are loaded
     },
-    
-    /**
-     * Populate filter checkboxes for a view
-     */
-     populateFilters: function(viewName) {
-        if (typeof Database === 'undefined') return;
-        
-        const data = Database.getData();
-        if (!data) return;
-        
-        // Get unique accounts
-        const accounts = Object.values(data.accounts || {});
-        
-        // Get unique holders
-        const holdersSet = new Set();
-        accounts.forEach(acc => {
-            if (acc.holders) {
-                acc.holders.forEach(h => holdersSet.add(h));
-            }
-        });
-        const holders = Array.from(holdersSet).sort();
-        
-        // Populate account filters as multi-select dropdown
-        const accountFilterEl = document.getElementById(`${viewName}-account-filters`);
-        if (accountFilterEl) {
-            let html = '<select multiple class="multi-select-dropdown" id="' + viewName + '-account-select" onchange="UI.onMultiSelectChange(\'' + viewName + '\', \'accounts\')">';
-            accounts.forEach(acc => {
-                const selected = this.activeFilters[viewName].accounts.includes(acc.id) ? 'selected' : '';
-                const statusBadge = acc.isActive ? '🟢' : '⚫';
-                html += `<option value="${acc.id}" ${selected}>${statusBadge} ${acc.name}</option>`;
-            });
-            html += '</select>';
-            accountFilterEl.innerHTML = html || '<p style="color: #a0aec0; font-size: 0.9em;">No accounts</p>';
-        }
-        
-        // Populate holder filters as multi-select dropdown
-        const holderFilterEl = document.getElementById(`${viewName}-holder-filters`);
-        if (holderFilterEl) {
-            let html = '<select multiple class="multi-select-dropdown" id="' + viewName + '-holder-select" onchange="UI.onMultiSelectChange(\'' + viewName + '\', \'holders\')">';
-            holders.forEach(holder => {
-                const selected = this.activeFilters[viewName].holders.includes(holder) ? 'selected' : '';
-                html += `<option value="${holder}" ${selected}>${holder}</option>`;
-            });
-            html += '</select>';
-            holderFilterEl.innerHTML = html || '<p style="color: #a0aec0; font-size: 0.9em;">No holders</p>';
-        }
-    },
-    
+
     /**
      * Clear all filters for a view
      */
      clearFilters: function(viewName) {
         this.activeFilters[viewName] = { accounts: [], holders: [] };
         
-        // Clear multi-select dropdowns
         const accountSelect = document.getElementById(`${viewName}-account-select`);
         const holderSelect = document.getElementById(`${viewName}-holder-select`);
         
@@ -1072,7 +1047,6 @@ const UI = {
             Array.from(holderSelect.options).forEach(option => option.selected = false);
         }
         
-        // Reload view
         this.loadViewData(viewName);
     },
     
@@ -1146,7 +1120,6 @@ const UI = {
         const modal = document.getElementById('favorite-modal');
         const summaryEl = document.getElementById('favorite-summary-content');
         
-        // Build filter summary
         const filters = this.activeFilters[viewName];
         const data = Database.getData();
         
@@ -1176,10 +1149,7 @@ const UI = {
         }
         
         summaryEl.innerHTML = summary;
-        
-        // Clear name input
         document.getElementById('favorite-name').value = '';
-        
         modal.classList.add('active');
     },
     
@@ -1227,8 +1197,6 @@ const UI = {
             this.hideLoading();
             this.hideFavoriteModal();
             this.showMessage('Favorite saved successfully', 'success');
-            
-            // Refresh favorites bar
             this.populateFavorites(viewName);
             
         } catch (error) {
@@ -1251,17 +1219,14 @@ const UI = {
         
         const viewName = favorite.view;
         
-        // Set active filters
         this.activeFilters[viewName] = {
             accounts: [...favorite.filters.accounts],
             holders: [...favorite.filters.holders]
         };
         
-        // Switch to that view if needed
         if (this.currentView !== viewName) {
             this.switchView(viewName);
         } else {
-            // Just reload with new filters
             this.loadViewData(viewName);
         }
         
@@ -1288,7 +1253,6 @@ const UI = {
             this.hideLoading();
             this.showMessage('Favorite deleted', 'success');
             
-            // Refresh all favorites bars
             this.populateFavorites('overview');
             this.populateFavorites('holdings');
             this.populateFavorites('transactions');
@@ -1377,9 +1341,8 @@ const UI = {
             const transaction = await Parser.processContractNote(fileId, fileName);
             
             if (transaction) {
-                // Refresh the view
                 this.updateOverview();
-                this.scanForNewFiles(); // Refresh file list
+                this.scanForNewFiles();
             }
         } catch (error) {
             console.error('Error in processSingleFile:', error);
@@ -1392,16 +1355,12 @@ const UI = {
      processAllFiles: async function() {
         UI.showMessage('Batch processing functionality coming in Phase 2!', 'info');
         console.log('Would process all files');
-        // This will be implemented in Phase 2 (Parser module)
     },
 
-    
-    
     /**
      * Delete a transaction with confirmation
      */
      deleteTransaction: async function(transactionId) {
-        // Show confirmation dialog
         const confirmed = confirm('⚠️ Are you sure you want to delete this transaction?\n\nThis action cannot be undone.');
         
         if (!confirmed) {
@@ -1416,7 +1375,6 @@ const UI = {
             UI.hideLoading();
             UI.showMessage('Transaction deleted successfully', 'success');
             
-            // Refresh the current view
             this.updateTransactions();
             this.updateOverview();
             this.updateHoldings();
@@ -1426,7 +1384,90 @@ const UI = {
             console.error('Error deleting transaction:', error);
             UI.showMessage('Error deleting transaction: ' + error.message, 'error');
         }
-    }
+    },
 
+    /**
+     * Refresh all stock prices
+     * Only fetches prices for CURRENT holdings (not sold stocks)
+     */
+    refreshAllPrices: async function() {
+        console.log('Refreshing all stock prices...');
+        
+        UI.showLoading('Fetching latest stock prices...');
+        
+        const statusEl = document.getElementById('price-update-status');
+        if (statusEl) {
+            statusEl.textContent = 'Fetching prices...';
+        }
+        
+        try {
+            const data = Database.getData();
+            
+            // Get CURRENT holdings only (quantity > 0, not sold stocks)
+            const holdings = Portfolio.calculateHoldings(data.transactions);
+            
+            if (holdings.length === 0) {
+                UI.hideLoading();
+                if (statusEl) statusEl.textContent = 'No current holdings to update';
+                return;
+            }
+            
+            // Build list of { symbol, exchange } for current holdings only
+            const symbolsWithExchanges = holdings.map(h => ({
+                symbol: h.symbol,
+                exchange: h.transactions[0]?.exchange || null
+            }));
+            
+            console.log('Holdings to update:', symbolsWithExchanges);
+            
+            // Clear cache to force fresh prices
+            Prices.clearCache();
+            
+            // Fetch all prices
+            await Prices.getBatchPrices(symbolsWithExchanges);
+            
+            UI.hideLoading();
+            
+            // Update status
+            if (statusEl) {
+                statusEl.textContent = `✅ Updated ${holdings.length} holdings just now`;
+            }
+            
+            // Update cache info display
+            this.updatePriceCacheInfo();
+            
+            // Refresh views
+            this.updateOverview();
+            this.updateHoldings();
+            
+            UI.showMessage('Prices updated successfully', 'success');
+            
+        } catch (error) {
+            UI.hideLoading();
+            console.error('Error refreshing prices:', error);
+            UI.showMessage('Error updating prices: ' + error.message, 'error');
+            
+            if (statusEl) {
+                statusEl.textContent = '❌ Error fetching prices';
+            }
+        }
+    },
+    
+    /**
+     * Update price cache info display
+     */
+    updatePriceCacheInfo: function() {
+        const cacheInfo = Prices.getCacheInfo();
+        
+        const cacheInfoEl = document.getElementById('price-cache-info');
+        if (cacheInfoEl) {
+            cacheInfoEl.textContent = `Cache: ${cacheInfo.symbols} symbols (oldest: ${cacheInfo.oldestAge}min)`;
+        }
+        
+        const apiCallsEl = document.getElementById('price-api-calls');
+        if (apiCallsEl) {
+            apiCallsEl.textContent = `AV: ${cacheInfo.alphaVantageCalls}/25 | FH: ${cacheInfo.finnhubCalls}/60`;
+        }
+    },
 
 };

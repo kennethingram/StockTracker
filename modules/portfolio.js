@@ -104,7 +104,6 @@ const Portfolio = {
         
         // For total value, we'd need current market prices
         // For now, use total cost as placeholder
-        // TODO: Integrate with stock price API
         stats.totalValue = stats.totalInvested;
         
         // Calculate gain/loss
@@ -190,7 +189,6 @@ const Portfolio = {
     
     /**
      * Get performance by symbol
-     * Note: Requires current market prices to calculate actual performance
      */
     getSymbolPerformance: function(transactions, symbol, currentPrice, baseCurrency = null) {
         if (!baseCurrency) {
@@ -224,8 +222,7 @@ const Portfolio = {
         
         if (currentPrice) {
             performance.currentValue = holding.quantity * currentPrice;
-            // TODO: Convert current value to base currency using current FX rate
-            performance.currentValueInBase = performance.currentValue; // Placeholder
+            performance.currentValueInBase = performance.currentValue;
             performance.gainLoss = performance.currentValueInBase - holding.totalCostInBase;
             performance.gainLossPercent = (performance.gainLoss / holding.totalCostInBase) * 100;
         }
@@ -274,7 +271,6 @@ const Portfolio = {
     
     /**
      * Get diversification breakdown
-     * Shows percentage of portfolio each holding represents
      */
     getDiversification: function(transactions, baseCurrency = null) {
         if (!baseCurrency) {
@@ -300,7 +296,6 @@ const Portfolio = {
     
     /**
      * Get monthly transaction summary
-     * Groups transactions by month (in base currency)
      */
     getMonthlyActivity: function(transactions, baseCurrency = null) {
         if (!baseCurrency) {
@@ -314,7 +309,6 @@ const Portfolio = {
         const byMonth = {};
         
         transactions.forEach(txn => {
-            // Extract year-month from date (e.g., "2024-01")
             const month = txn.date.substring(0, 7);
             
             if (!byMonth[month]) {
@@ -339,13 +333,11 @@ const Portfolio = {
             }
         });
         
-        // Convert to array and sort by month
         return Object.values(byMonth).sort((a, b) => a.month.localeCompare(b.month));
     },
     
     /**
      * Get currency breakdown
-     * Shows how much is invested in each currency
      */
     getCurrencyBreakdown: function(transactions) {
         if (!transactions || transactions.length === 0) {
@@ -373,6 +365,7 @@ const Portfolio = {
         
         return Object.values(byCurrency).sort((a, b) => b.totalInvested - a.totalInvested);
     },
+
     /**
      * Calculate years held from a date to today
      */
@@ -382,20 +375,22 @@ const Portfolio = {
         const diffTime = Math.abs(today - start);
         const diffDays = diffTime / (1000 * 60 * 60 * 24);
         const years = diffDays / 365.25;
-        return years || 0.01; // Avoid division by zero, minimum 0.01 years
+        return years || 0.01;
     },
     
     /**
      * Calculate P/L and ARR for a single holding
+     * currentPriceData can be a number or { price, currency } object
      */
-    calculateHoldingPerformance: function(holding, currentPrice, baseCurrency = null) {
+    calculateHoldingPerformance: function(holding, currentPriceData, baseCurrency = null) {
         if (!baseCurrency) {
             baseCurrency = CONFIG.baseCurrency;
         }
         
-        if (!currentPrice) {
+        if (!currentPriceData) {
             return {
                 currentPrice: null,
+                priceCurrency: null,
                 currentValue: null,
                 currentValueInBase: null,
                 gainLoss: null,
@@ -404,11 +399,21 @@ const Portfolio = {
             };
         }
         
+        // Handle both number and { price, currency } object formats
+        let currentPrice, priceCurrency;
+        if (typeof currentPriceData === 'object' && currentPriceData !== null) {
+            currentPrice = currentPriceData.price;
+            priceCurrency = currentPriceData.currency || holding.currency;
+        } else {
+            currentPrice = currentPriceData;
+            priceCurrency = holding.currency;
+        }
+        
         // Calculate current value
         const currentValue = holding.quantity * currentPrice;
         
-        // For simplicity, assume current price is in same currency as holding
-        // In production, would need FX conversion here
+        // For now assume price currency matches holding currency
+        // Future: add FX conversion here
         const currentValueInBase = currentValue;
         
         // Calculate P/L
@@ -416,7 +421,6 @@ const Portfolio = {
         const gainLossPercent = (gainLoss / holding.totalCostInBase) * 100;
         
         // Calculate ARR
-        // Find earliest transaction date for this holding
         const firstDate = holding.transactions.reduce((earliest, txn) => {
             return txn.date < earliest ? txn.date : earliest;
         }, holding.transactions[0].date);
@@ -426,6 +430,7 @@ const Portfolio = {
         
         return {
             currentPrice: currentPrice,
+            priceCurrency: priceCurrency,
             currentValue: currentValue,
             currentValueInBase: currentValueInBase,
             gainLoss: gainLoss,
@@ -438,7 +443,7 @@ const Portfolio = {
     /**
      * Calculate portfolio-level statistics with current prices
      */
-    calculatePortfolioStats: function(data, baseCurrency = null) {
+    calculatePortfolioStats: async function(data, baseCurrency = null) {
         if (!baseCurrency) {
             baseCurrency = CONFIG.baseCurrency;
         }
@@ -457,44 +462,50 @@ const Portfolio = {
             return stats;
         }
         
-        // Get holdings
+        // Get current holdings only (quantity > 0)
         const holdings = this.calculateHoldings(data.transactions, baseCurrency);
         
-        // Calculate performance for each holding
         let totalWeightedARR = 0;
         
-        holdings.forEach(holding => {
-            const currentPrice = Prices.getCurrentPrice(holding.symbol);
-            const performance = this.calculateHoldingPerformance(holding, currentPrice, baseCurrency);
+        // Process holdings in parallel
+        const holdingPromises = holdings.map(async (holding) => {
+            // Get exchange from first transaction
+            const exchange = holding.transactions[0]?.exchange || null;
             
-            // Add performance data to holding
+            // Fetch price - returns { price, currency } object
+            const currentPriceData = await Prices.getCurrentPrice(holding.symbol, exchange);
+            const performance = this.calculateHoldingPerformance(holding, currentPriceData, baseCurrency);
+            
             holding.performance = performance;
             
-            // Sum up totals
+            return holding;
+        });
+        
+        const holdingsWithPrices = await Promise.all(holdingPromises);
+        
+        holdingsWithPrices.forEach(holding => {
+            const performance = holding.performance;
+            
             stats.totalInvested += holding.totalCostInBase;
             
             if (performance.currentValueInBase !== null) {
                 stats.totalCurrentValue += performance.currentValueInBase;
                 
-                // Weighted ARR by investment amount
                 if (performance.arr !== null) {
                     totalWeightedARR += performance.arr * holding.totalCostInBase;
                 }
             } else {
-                // If no current price, use cost as current value
                 stats.totalCurrentValue += holding.totalCostInBase;
             }
             
             stats.holdings.push(holding);
         });
         
-        // Calculate total P/L
         stats.totalGainLoss = stats.totalCurrentValue - stats.totalInvested;
         stats.totalGainLossPercent = stats.totalInvested > 0 
             ? (stats.totalGainLoss / stats.totalInvested) * 100 
             : 0;
         
-        // Calculate weighted average ARR
         stats.totalARR = stats.totalInvested > 0 
             ? totalWeightedARR / stats.totalInvested 
             : 0;
