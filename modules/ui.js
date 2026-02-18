@@ -20,6 +20,9 @@ const UI = {
     
     // Track current favorite being saved
     savingFavoriteForView: null,
+    
+    // Track selected currency for Overview (session only)
+    selectedOverviewCurrency: CONFIG.baseCurrency,
 
     
     /**
@@ -227,23 +230,26 @@ const UI = {
             transactions: filteredTxns
         };
         
-        // Calculate portfolio stats with filtered data
-        const stats = await Portfolio.calculatePortfolioStats(filteredData);
+        // Use selected currency for Overview
+        const baseCurrency = this.selectedOverviewCurrency;
+        
+        // Calculate portfolio stats with filtered data and selected currency
+        const stats = await Portfolio.calculatePortfolioStats(filteredData, baseCurrency);
         
         // Update stat cards
         document.getElementById('total-value').textContent = 
-            this.formatCurrency(stats.totalCurrentValue);
+            this.formatCurrency(stats.totalCurrentValue, baseCurrency);
         document.getElementById('value-currency').textContent = 
-            stats.baseCurrency;
+            baseCurrency;
         
         document.getElementById('total-invested').textContent = 
-            this.formatCurrency(stats.totalInvested);
+            this.formatCurrency(stats.totalInvested, baseCurrency);
         document.getElementById('invested-currency').textContent = 
             stats.baseCurrency;
         
         // P/L card with color
         const plElement = document.getElementById('total-pl');
-        plElement.textContent = this.formatCurrency(Math.abs(stats.totalGainLoss));
+        plElement.textContent = this.formatCurrency(Math.abs(stats.totalGainLoss), baseCurrency);
         
         // Add positive/negative class
         plElement.className = 'stat-value';
@@ -280,8 +286,8 @@ const UI = {
         document.getElementById('total-accounts').textContent = 
             Object.keys(data.accounts || {}).length;
         
-        // Update recent transactions
-        this.updateRecentTransactions(filteredTxns);
+        // Update holdings cards (replaces recent transactions)
+        this.updateOverviewHoldings(stats.holdings, baseCurrency);
     },
     
     /**
@@ -323,6 +329,147 @@ const UI = {
         listEl.innerHTML = html;
     },
     
+    
+    /**
+     * Update holdings cards in Overview (replaces recent transactions)
+     */
+     updateOverviewHoldings: function(holdings, baseCurrency) {
+        const listEl = document.getElementById('recent-transactions-list');
+        
+        if (!holdings || holdings.length === 0) {
+            listEl.innerHTML = '<p class="empty-state">No holdings yet.</p>';
+            return;
+        }
+        
+        let html = '<div style="display: grid; gap: 15px;">';
+        
+        holdings.forEach(holding => {
+            const perf = holding.performance;
+            
+            // Check if we have performance data at all
+            const hasPerformanceData = perf && perf.currentPrice !== null && perf.currentPrice !== undefined;
+            
+            // Check if historical FX missing
+            const missingHistoricalFX = holding.transactions.some(t => 
+                t.fxRateSource === 'fallback' || 
+                (t.currency !== baseCurrency && !t.fxRate)
+            );
+            
+            // Determine P/L color
+            let plClass = 'neutral';
+            let plSign = '';
+            if (perf && perf.gainLoss !== null) {
+                if (perf.gainLoss > 0) {
+                    plClass = 'positive';
+                    plSign = '+';
+                } else if (perf.gainLoss < 0) {
+                    plClass = 'negative';
+                }
+            }
+            
+            // ARR color
+            let arrClass = 'neutral';
+            let arrSign = '';
+            if (perf && perf.arr !== null) {
+                if (perf.arr > 0) {
+                    arrClass = 'positive';
+                    arrSign = '+';
+                } else if (perf.arr < 0) {
+                    arrClass = 'negative';
+                }
+            }
+            
+            html += `
+                <div style="background: #f7fafc; padding: 20px; border-radius: 8px; border-left: 4px solid #667eea;">
+                    ${!hasPerformanceData ? `
+                        <div style="background: #fee; color: #c53030; padding: 8px 12px; border-radius: 4px; font-size: 0.85em; margin-bottom: 12px;">
+                            ⚠️ Unable to fetch current price - showing cost basis only
+                        </div>
+                    ` : ''}
+                    
+                    ${missingHistoricalFX ? `
+                        <div style="background: #fef3c7; color: #92400e; padding: 8px 12px; border-radius: 4px; font-size: 0.85em; margin-bottom: 12px;">
+                            ⚠️ Historical FX rate missing - cost basis may be inaccurate
+                        </div>
+                    ` : ''}
+                    
+                    <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 15px;">
+                        <div>
+                            <h3 style="margin: 0; color: #2d3748; font-size: 1.4em;">${holding.symbol}</h3>
+                            <p style="margin: 5px 0; color: #718096; font-size: 0.9em;">${holding.company || 'Unknown Company'}</p>
+                        </div>
+                    </div>
+                    
+                    <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px;">
+                        <div>
+                            <div style="color: #718096; font-size: 0.85em;">Current Value (${baseCurrency})</div>
+                            <div style="font-weight: 700; color: #2d3748; font-size: 1.2em;">
+                                ${hasPerformanceData && perf.currentValueInBase !== null 
+                                    ? this.formatCurrency(perf.currentValueInBase, baseCurrency) 
+                                    : '<span style="color: #a0aec0;">N/A</span>'}
+                            </div>
+                        </div>
+                        <div>
+                            <div style="color: #718096; font-size: 0.85em;">Cost Basis (${baseCurrency})</div>
+                            <div style="font-weight: 600; color: #2d3748; font-size: 1.1em;">
+                                ${holding.costBasisConverted !== undefined 
+                                    ? this.formatCurrency(holding.costBasisConverted, baseCurrency)
+                                    : this.formatCurrency(holding.totalCostInBase, baseCurrency)}
+                            </div>
+                        </div>
+                            <div style="color: #718096; font-size: 0.85em;">P/L (${baseCurrency})</div>
+                            <div style="font-weight: 700; font-size: 1.2em;" class="${plClass}">
+                                ${hasPerformanceData && perf.gainLoss !== null 
+                                    ? plSign + this.formatCurrency(Math.abs(perf.gainLoss), baseCurrency)
+                                    : '<span style="color: #a0aec0;">N/A</span>'}
+                            </div>
+                            <div style="color: #718096; font-size: 0.85em; margin-top: 2px;">
+                                ${hasPerformanceData && perf.gainLossPercent !== null ? plSign + perf.gainLossPercent.toFixed(2) + '%' : ''}
+                            </div>
+                        </div>
+                        <div>
+                            <div style="color: #718096; font-size: 0.85em;">ARR</div>
+                            <div style="font-weight: 700; font-size: 1.2em;" class="${arrClass}">
+                                ${hasPerformanceData && perf.arr !== null 
+                                    ? arrSign + perf.arr.toFixed(2) + '%' 
+                                    : '<span style="color: #a0aec0;">N/A</span>'}
+                            </div>
+                            <div style="color: #718096; font-size: 0.85em; margin-top: 2px;">
+                                ${perf && perf.yearsHeld ? perf.yearsHeld.toFixed(2) + ' years' : ''}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+        
+        html += '</div>';
+        listEl.innerHTML = html;
+    },
+
+    /**
+     * Change the currency for Overview display
+     */
+     changeOverviewCurrency: async function(currency) {
+        console.log('Changing Overview currency to:', currency);
+        
+        this.selectedOverviewCurrency = currency;
+        
+        // Refresh live FX rates
+        if (typeof FX !== 'undefined') {
+            try {
+                await FX.getLiveRates();
+            } catch (error) {
+                console.error('Failed to refresh FX rates:', error);
+            }
+        }
+        
+        // Reload Overview with new currency
+        await this.updateOverview();
+        
+        this.showMessage(`Currency changed to ${currency}`, 'success');
+    },
+
     /**
      * Update Holdings view
      * Shows current positions
@@ -359,7 +506,7 @@ const UI = {
         let html = '<div style="display: grid; gap: 20px;">';
         
         holdings.forEach(holding => {
-            const perf = holding.performance;
+            const perf = holding.performance || {};
             
             // Use price currency from API if available, else fall back to holding currency
             const priceCurrency = perf.priceCurrency || holding.currency;
@@ -393,56 +540,61 @@ const UI = {
                         </div>
                         <div style="text-align: right;">
                             <div style="font-size: 1.2em; font-weight: 600; color: #667eea;">
-                                ${perf.currentPrice 
-                                    ? this.formatCurrency(perf.currentPrice, priceCurrency) 
+                                ${perf && perf.currentPrice 
+                                    ? this.formatCurrency(perf.currentPrice, priceCurrency) + 
+                                      (priceCurrency !== CONFIG.baseCurrency && perf.currentPriceInBase 
+                                        ? ' (' + this.formatCurrency(perf.currentPriceInBase, CONFIG.baseCurrency) + ')' 
+                                        : '')
                                     : 'Price N/A'}
                             </div>
-                            <div style="color: #718096; font-size: 0.9em;">Current Price (${priceCurrency})</div>
+                            <div style="color: #718096; font-size: 0.9em;">Current Price</div>
                         </div>
                     </div>
                     
                     <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; margin-bottom: 15px;">
                         <div>
                             <div style="color: #718096; font-size: 0.9em;">Quantity</div>
-                            <div style="font-weight: 600; color: #2d3748; font-size: 1.3em;">${holding.quantity} shares</div>
+                            <div style="font-weight: 600; color: #2d3748; font-size: 1.3em;">${holding.quantity.toLocaleString()} shares</div>
                         </div>
                         <div>
-                            <div style="color: #718096; font-size: 0.9em;">Avg Cost (${holding.currency})</div>
-                            <div style="font-weight: 600; color: #2d3748;">${this.formatCurrency(holding.avgCostInBase, holding.currency)}</div>
-                        </div>
-                        <div>
-                            <div style="color: #718096; font-size: 0.9em;">Total Cost (${holding.currency})</div>
-                            <div style="font-weight: 600; color: #2d3748;">${this.formatCurrency(holding.totalCostInBase, holding.currency)}</div>
-                        </div>
-                        <div>
-                            <div style="color: #718096; font-size: 0.9em;">Current Value (${priceCurrency})</div>
+                            <div style="color: #718096; font-size: 0.9em;">ACB (${CONFIG.baseCurrency})</div>
                             <div style="font-weight: 600; color: #2d3748;">
-                                ${perf.currentValueInBase 
-                                    ? this.formatCurrency(perf.currentValueInBase, priceCurrency) 
+                                ${perf && perf.acb ? this.formatCurrency(perf.acb, CONFIG.baseCurrency) : 'N/A'}
+                            </div>
+                        </div>
+                        <div>
+                            <div style="color: #718096; font-size: 0.9em;">Cost Basis (${CONFIG.baseCurrency})</div>
+                            <div style="font-weight: 600; color: #2d3748;">${this.formatCurrency(holding.totalCostInBase, CONFIG.baseCurrency)}</div>
+                        </div>
+                        <div>
+                            <div style="color: #718096; font-size: 0.9em;">Current Value (${CONFIG.baseCurrency})</div>
+                            <div style="font-weight: 600; color: #2d3748;">
+                                ${perf && perf.currentValueInBase 
+                                    ? this.formatCurrency(perf.currentValueInBase, CONFIG.baseCurrency) 
                                     : 'N/A'}
                             </div>
                         </div>
                     </div>
                     
-                    ${perf.gainLoss !== null ? `
+                    ${perf && perf.gainLoss !== null ? `
                     <div style="margin-top: 20px; padding-top: 20px; border-top: 2px solid #e2e8f0;">
                         <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px;">
                             <div>
-                                <div style="color: #718096; font-size: 0.9em; margin-bottom: 5px;">Profit/Loss (${priceCurrency})</div>
+                                <div style="color: #718096; font-size: 0.9em; margin-bottom: 5px;">Profit/Loss (${CONFIG.baseCurrency})</div>
                                 <div style="font-size: 1.4em; font-weight: 700;" class="${plClass}">
-                                    ${plSign}${this.formatCurrency(Math.abs(perf.gainLoss), priceCurrency)}
+                                    ${plSign}${this.formatCurrency(Math.abs(perf.gainLoss), CONFIG.baseCurrency)}
                                 </div>
                                 <div style="color: #718096; font-size: 0.95em; margin-top: 3px;">
-                                    ${plSign}${perf.gainLossPercent.toFixed(2)}%
+                                    ${perf.gainLossPercent !== null ? plSign + perf.gainLossPercent.toFixed(2) + '%' : ''}
                                 </div>
                             </div>
                             <div>
                                 <div style="color: #718096; font-size: 0.9em; margin-bottom: 5px;">Annualized Return</div>
                                 <div style="font-size: 1.4em; font-weight: 700;" class="${arrClass}">
-                                    ${arrSign}${perf.arr.toFixed(2)}%
+                                    ${perf.arr !== null ? arrSign + perf.arr.toFixed(2) + '%' : 'N/A'}
                                 </div>
                                 <div style="color: #718096; font-size: 0.95em; margin-top: 3px;">
-                                    ${perf.yearsHeld.toFixed(2)} years held
+                                    ${perf.yearsHeld ? perf.yearsHeld.toFixed(2) + ' years held' : ''}
                                 </div>
                             </div>
                         </div>
@@ -1390,17 +1542,27 @@ const UI = {
      * Refresh all stock prices
      * Only fetches prices for CURRENT holdings (not sold stocks)
      */
-    refreshAllPrices: async function() {
-        console.log('Refreshing all stock prices...');
+     refreshAllPrices: async function() {
+        console.log('Refreshing all stock prices and FX rates...');
         
-        UI.showLoading('Fetching latest stock prices...');
+        UI.showLoading('Fetching latest stock prices and FX rates...');
         
         const statusEl = document.getElementById('price-update-status');
         if (statusEl) {
-            statusEl.textContent = 'Fetching prices...';
+            statusEl.textContent = 'Fetching prices and FX rates...';
         }
         
         try {
+            // Refresh FX rates first
+            if (typeof FX !== 'undefined') {
+                try {
+                    await FX.getLiveRates();
+                    console.log('✅ FX rates refreshed');
+                } catch (error) {
+                    console.error('⚠️ FX refresh failed:', error);
+                }
+            }
+            
             const data = Database.getData();
             
             // Get CURRENT holdings only (quantity > 0, not sold stocks)

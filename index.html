@@ -108,7 +108,40 @@
                     <div id="overview-favorites-bar" class="favorites-bar">
                         <!-- Populated by JS -->
                     </div>
-                    
+
+                    <!-- Price Refresh Controls -->
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin: 30px 0 20px 0; padding: 15px; background: #f7fafc; border-radius: 8px;">
+                        <div>
+                            <button class="btn-primary" onclick="UI.refreshAllPrices()" style="margin-right: 10px;">
+                                🔄 Refresh Prices & FX
+                            </button>
+                            <span id="price-update-status" style="color: #718096; font-size: 0.9em;">
+                                Click to fetch latest prices and FX rates
+                            </span>
+                        </div>
+                        <div style="text-align: right;">
+                            <div style="margin-bottom: 8px;">
+                                <label style="color: #718096; font-size: 0.85em; margin-right: 8px;">Display Currency:</label>
+                                <select id="overview-currency-select" 
+                                        onchange="UI.changeOverviewCurrency(this.value)"
+                                        style="padding: 6px 12px; border: 1px solid #e2e8f0; border-radius: 6px; background: white; font-size: 0.9em; cursor: pointer;">
+                                    <option value="CAD">CAD ($)</option>
+                                    <option value="USD">USD ($)</option>
+                                    <option value="GBP">GBP (£)</option>
+                                    <option value="EUR">EUR (€)</option>
+                                    <option value="AUD">AUD ($)</option>
+                                    <option value="INR">INR (₹)</option>
+                                    <option value="CHF">CHF (Fr)</option>
+                                </select>
+                            </div>
+                            <div style="color: #718096; font-size: 0.85em;">
+                                <div id="price-cache-info">Cache: 0 symbols</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Overview Cards -->
+
                     <div class="stats-grid">
                         <div class="stat-card">
                             <div class="stat-label">Total Portfolio Value</div>
@@ -141,11 +174,11 @@
                             <div class="stat-subvalue">Active accounts</div>
                         </div>
                     </div>
-                    
+
                     <div class="recent-transactions">
-                        <h2>Recent Transactions</h2>
+                        <h2>Holdings Summary</h2>
                         <div id="recent-transactions-list">
-                            <p class="empty-state">No transactions yet. Click "Sync" to process contract notes.</p>
+                            <p class="empty-state">No holdings yet. Click "Sync" to process contract notes.</p>
                         </div>
                     </div>
                 </div>
@@ -372,6 +405,7 @@
     <script src="modules/drive.js"></script>
     <script src="modules/database.js"></script>
     <script src="modules/currency.js"></script>
+    <script src="modules/fx.js"></script>
     <script src="modules/prices.js"></script>
     <script src="modules/parser.js"></script>
     <script src="modules/portfolio.js"></script>

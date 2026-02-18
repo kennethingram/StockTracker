@@ -46,18 +46,62 @@ const Parser = {
             console.log(`Saving ${transactions.length} transaction(s)...`);
             
             for (const transaction of transactions) {
-                // Add missing fields with defaults
+                // Fetch ALL historical FX rates for this transaction date
+                console.log(`Fetching ALL FX rates for ${transaction.date}...`);
+                
+                try {
+                    // This fetches and stores ALL 7 currency rates for the date
+                    await FX.fetchAllRatesForDate(transaction.date);
+                    console.log(`✅ ALL FX rates fetched and saved for ${transaction.date}`);
+                } catch (error) {
+                    console.error(`⚠️ Failed to fetch FX rates for ${transaction.date}:`, error);
+                    UI.showMessage(`Warning: Could not fetch FX rates for ${transaction.date}`, 'warning');
+                }
+                
+                // Calculate values in base currency using historical rates
+                let totalInBase = transaction.total;
+                let priceInBase = transaction.price;
+                let feesInBase = transaction.fees || 0;
+                
+                if (transaction.currency !== CONFIG.baseCurrency) {
+                    try {
+                        totalInBase = await FX.convertWithHistoricalRate(
+                            transaction.total,
+                            transaction.currency,
+                            CONFIG.baseCurrency,
+                            transaction.date
+                        );
+                        
+                        priceInBase = await FX.convertWithHistoricalRate(
+                            transaction.price,
+                            transaction.currency,
+                            CONFIG.baseCurrency,
+                            transaction.date
+                        );
+                        
+                        feesInBase = await FX.convertWithHistoricalRate(
+                            transaction.fees || 0,
+                            transaction.currency,
+                            CONFIG.baseCurrency,
+                            transaction.date
+                        );
+                        
+                        console.log(`✅ Converted: ${transaction.total} ${transaction.currency} → ${totalInBase.toFixed(2)} ${CONFIG.baseCurrency}`);
+                    } catch (error) {
+                        console.error('⚠️ Failed to convert transaction amounts:', error);
+                        // Keep original amounts if conversion fails
+                    }
+                }
+                
+                // Add missing fields with calculated base currency amounts
                 const completeTransaction = {
                     ...transaction,
                     accountId: transaction.accountId || null,
                     settlementDate: transaction.settlementDate || transaction.date,
-                    fxRate: transaction.fxRate || 1.0,
-                    fxRateSource: transaction.fxRateSource || 'manual',
-                    fxRateDate: transaction.fxRateDate || transaction.date,
                     baseCurrency: CONFIG.baseCurrency,
-                    priceInBase: transaction.price * (transaction.fxRate || 1.0),
-                    feesInBase: transaction.fees * (transaction.fxRate || 1.0),
-                    totalInBase: transaction.total * (transaction.fxRate || 1.0),
+                    priceInBase: priceInBase,
+                    feesInBase: feesInBase,
+                    totalInBase: totalInBase,
                     broker: transaction.broker || '',
                     contractNoteFile: fileName,
                     contractNoteId: fileId
@@ -740,6 +784,26 @@ IMPORTANT:
     },
 
     /**
+     * Auto-detect exchange from symbol patterns
+     */
+    detectExchangeFromSymbol: function(symbol) {
+        if (!symbol) return '';
+        
+        const sym = symbol.toUpperCase();
+        
+        // UK stocks
+        const ukStocks = ['LGEN', 'LLOY', 'BP', 'HSBA', 'VOD', 'GSK', 'AZN', 'RIO', 'SHEL', 'ULVR', 'BATS', 'BT', 'BNS'];
+        if (ukStocks.includes(sym)) return 'LSE';
+        
+        if (sym.endsWith('.L')) return 'LSE';
+        if (sym.endsWith('.TO')) return 'TSX';
+        if (sym.endsWith('.AX')) return 'ASX';
+        if (sym.endsWith('.DE')) return 'XETRA';
+        
+        return '';
+    },
+
+    /**
      * Show validation UI for human review
      * Returns array of validated transactions
      */
@@ -770,6 +834,7 @@ IMPORTANT:
                         <th style="padding: 12px; text-align: left; font-size: 0.9em;">Date</th>
                         <th style="padding: 12px; text-align: left; font-size: 0.9em;">Type</th>
                         <th style="padding: 12px; text-align: left; font-size: 0.9em;">Symbol</th>
+                        <th style="padding: 12px; text-align: left; font-size: 0.9em;">Exchange</th>
                         <th style="padding: 12px; text-align: left; font-size: 0.9em;">Quantity</th>
                         <th style="padding: 12px; text-align: left; font-size: 0.9em;">Price</th>
                         <th style="padding: 12px; text-align: left; font-size: 0.9em;">Currency</th>
@@ -815,6 +880,18 @@ IMPORTANT:
                     <td style="padding: 12px;">
                         <input type="text" id="symbol-${index}" value="${txn.symbol || ''}" 
                                style="width: 100%; padding: 6px; border: 1px solid #e2e8f0; border-radius: 4px; font-size: 0.9em;">
+                    </td>
+                    <td style="padding: 12px;">
+                        <select id="exchange-${index}" style="width: 120px; padding: 6px; border: 1px solid #e2e8f0; border-radius: 4px; font-size: 0.9em;">
+                            <option value="">Auto (US)</option>
+                            <option value="LSE">LSE (UK)</option>
+                            <option value="TSX">TSX (Canada)</option>
+                            <option value="NYSE">NYSE</option>
+                            <option value="NASDAQ">NASDAQ</option>
+                            <option value="XETRA">XETRA (Germany)</option>
+                            <option value="EURONEXT">Euronext</option>
+                            <option value="ASX">ASX (Australia)</option>
+                        </select>
                     </td>
                     <td style="padding: 12px;">
                         <input type="number" id="quantity-${index}" value="${txn.quantity || ''}" 
@@ -951,8 +1028,18 @@ IMPORTANT:
                         matchBadge.innerHTML = '<span style="color: #ed8936; font-size: 0.85em; font-weight: 600;">⚠️ Multiple matches - please verify</span>';
                     }
                 }
+
+                // Auto-detect exchange based on symbol
+                const exchangeSelect = document.getElementById(`exchange-${index}`);
+                if (exchangeSelect && txn.symbol) {
+                    const detectedExchange = this.detectExchangeFromSymbol(txn.symbol);
+                    if (detectedExchange) {
+                        exchangeSelect.value = detectedExchange;
+                    }
+                }
+                
             });
-            
+
             // Set up save button
             const saveBtn = modal.querySelector('#save-validated-btn');
             if (saveBtn) {
@@ -1034,6 +1121,7 @@ IMPORTANT:
                     date: document.getElementById(`date-${index}`).value,
                     type: document.getElementById(`type-${index}`).value,
                     symbol: document.getElementById(`symbol-${index}`).value.toUpperCase(),
+                    exchange: document.getElementById(`exchange-${index}`).value || null,  // ← ADD THIS LINE
                     company: modal.transactions[index].company || document.getElementById(`symbol-${index}`).value,
                     quantity: parseFloat(document.getElementById(`quantity-${index}`).value),
                     price: parseFloat(document.getElementById(`price-${index}`).value),

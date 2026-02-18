@@ -11,6 +11,7 @@ const Database = {
         transactions: [],  // All your trades (enhanced with currency)
         processedFiles: [], // Track which contract notes we've already processed
         favorites: {},     // Saved filter combinations
+        fxRates: {},       // FX rates (live and historical)
         settings: {        // User preferences
             baseCurrency: CONFIG.baseCurrency,
             createdAt: new Date().toISOString()
@@ -47,6 +48,7 @@ const Database = {
                 transactions: [],
                 processedFiles: [],
                 favorites: {},
+                fxRates: {},
                 settings: {
                     baseCurrency: CONFIG.baseCurrency,
                     createdAt: new Date().toISOString()
@@ -131,6 +133,12 @@ const Database = {
         if (response.ok) {
             const fileData = await response.json();
             this.data = fileData;
+            
+            // Ensure fxRates exists
+            if (!this.data.fxRates) {
+                this.data.fxRates = {};
+            }
+            
             console.log('Database loaded:', this.data);
         } else {
             throw new Error('Failed to read database file');
@@ -144,7 +152,6 @@ const Database = {
         const token = Auth.getAccessToken();
         
         // Create file metadata
-        // Create file metadata
         const STORAGE_FOLDER_ID = '1CPuJg--6dJ-x7LbWdlTj6Pd_CxAYyQlI';  // ← Your folder ID from Step 2
         
         const metadata = {
@@ -154,11 +161,12 @@ const Database = {
         };
         
         // Create file content (initial empty database)
-          const initialData = {
+        const initialData = {
             accounts: {},
             transactions: [],
             processedFiles: [],
             favorites: {},
+            fxRates: {},
             settings: {
                 baseCurrency: CONFIG.baseCurrency,
                 createdAt: new Date().toISOString()
@@ -240,7 +248,7 @@ const Database = {
     /**
      * Add a new transaction
      */
-     addTransaction: async function(transaction) {
+    addTransaction: async function(transaction) {
         console.log('Adding transaction:', transaction);
         
         // Generate unique ID
@@ -259,7 +267,7 @@ const Database = {
     /**
      * Delete a transaction
      */
-     deleteTransaction: async function(transactionId) {
+    deleteTransaction: async function(transactionId) {
         console.log('Deleting transaction:', transactionId);
         
         // Find and remove the transaction
@@ -332,7 +340,9 @@ const Database = {
             this.data = {
                 accounts: {},
                 transactions: [],
-                processedFiles: []
+                processedFiles: [],
+                favorites: {},
+                fxRates: {}
             };
             await this.saveToDrive();
             console.log('All data cleared');
@@ -348,7 +358,7 @@ const Database = {
         
         this.data = {
             accounts: {
-                 'schwab_12345': {
+                'schwab_12345': {
                     id: 'schwab_12345',
                     name: 'Schwab Joint Account',
                     accountNumber: 'XXXX-12345',
@@ -510,6 +520,7 @@ const Database = {
             ],
             processedFiles: [],
             favorites: {},
+            fxRates: {},
             settings: {
                 baseCurrency: 'CAD',
                 createdAt: '2024-01-15T10:00:00Z'
@@ -557,5 +568,4 @@ const Database = {
     getFavorite: function(favoriteId) {
         return this.data.favorites[favoriteId] || null;
     },
-
 };

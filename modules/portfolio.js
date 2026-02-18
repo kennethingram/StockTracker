@@ -381,8 +381,9 @@ const Portfolio = {
     /**
      * Calculate P/L and ARR for a single holding
      * currentPriceData can be a number or { price, currency } object
+     * Uses FX conversion for current value
      */
-    calculateHoldingPerformance: function(holding, currentPriceData, baseCurrency = null) {
+    calculateHoldingPerformance: async function(holding, currentPriceData, baseCurrency = null) {
         if (!baseCurrency) {
             baseCurrency = CONFIG.baseCurrency;
         }
@@ -409,12 +410,35 @@ const Portfolio = {
             priceCurrency = holding.currency;
         }
         
-        // Calculate current value
+        // Calculate current value in native currency
         const currentValue = holding.quantity * currentPrice;
         
-        // For now assume price currency matches holding currency
-        // Future: add FX conversion here
-        const currentValueInBase = currentValue;
+        // Convert current price to base currency for display
+        let currentPriceInBase = currentPrice;
+        if (priceCurrency !== baseCurrency && typeof FX !== 'undefined') {
+            try {
+                currentPriceInBase = await FX.convertCurrency(currentPrice, priceCurrency, baseCurrency);
+            } catch (error) {
+                console.error('FX conversion failed for price:', error);
+                currentPriceInBase = currentPrice;
+            }
+        }
+        
+        // Convert current value to base currency using live FX rate
+        let currentValueInBase = currentValue;
+        
+        if (priceCurrency !== baseCurrency && typeof FX !== 'undefined') {
+            try {
+                currentValueInBase = await FX.convertCurrency(currentValue, priceCurrency, baseCurrency);
+                console.log(`Converted ${currentValue} ${priceCurrency} → ${currentValueInBase.toFixed(2)} ${baseCurrency}`);
+            } catch (error) {
+                console.error('FX conversion failed, using 1:1:', error);
+                currentValueInBase = currentValue;
+            }
+        }
+        
+        // Calculate Average Cost Basis (ACB) in base currency
+        const acb = holding.totalCostInBase / holding.quantity;
         
         // Calculate P/L
         const gainLoss = currentValueInBase - holding.totalCostInBase;
@@ -431,8 +455,10 @@ const Portfolio = {
         return {
             currentPrice: currentPrice,
             priceCurrency: priceCurrency,
+            currentPriceInBase: currentPriceInBase,
             currentValue: currentValue,
             currentValueInBase: currentValueInBase,
+            acb: acb,
             gainLoss: gainLoss,
             gainLossPercent: gainLossPercent,
             arr: arr,
@@ -474,9 +500,39 @@ const Portfolio = {
             
             // Fetch price - returns { price, currency } object
             const currentPriceData = await Prices.getCurrentPrice(holding.symbol, exchange);
-            const performance = this.calculateHoldingPerformance(holding, currentPriceData, baseCurrency);
+            const performance = await this.calculateHoldingPerformance(holding, currentPriceData, baseCurrency);
             
             holding.performance = performance;
+            
+            // Convert cost basis to selected currency if different from base
+            if (baseCurrency !== CONFIG.baseCurrency && typeof FX !== 'undefined') {
+                try {
+                    holding.costBasisConverted = await FX.convertCurrency(
+                        holding.totalCostInBase,
+                        CONFIG.baseCurrency,
+                        baseCurrency
+                    );
+                    console.log(`Converted cost basis: ${holding.totalCostInBase} ${CONFIG.baseCurrency} → ${holding.costBasisConverted.toFixed(2)} ${baseCurrency}`);
+                    
+                    // Recalculate P/L and ARR with converted cost basis
+                    if (performance.currentValueInBase !== null) {
+                        performance.gainLoss = performance.currentValueInBase - holding.costBasisConverted;
+                        performance.gainLossPercent = (performance.gainLoss / holding.costBasisConverted) * 100;
+                        
+                        // Recalculate ARR
+                        const firstDate = holding.transactions.reduce((earliest, txn) => {
+                            return txn.date < earliest ? txn.date : earliest;
+                        }, holding.transactions[0].date);
+                        const yearsHeld = this.calculateYearsHeld(firstDate);
+                        performance.arr = (performance.gainLoss / holding.costBasisConverted / yearsHeld) * 100;
+                    }
+                } catch (error) {
+                    console.error('Failed to convert cost basis:', error);
+                    holding.costBasisConverted = holding.totalCostInBase;
+                }
+            } else {
+                holding.costBasisConverted = holding.totalCostInBase;
+            }
             
             return holding;
         });
@@ -486,16 +542,19 @@ const Portfolio = {
         holdingsWithPrices.forEach(holding => {
             const performance = holding.performance;
             
-            stats.totalInvested += holding.totalCostInBase;
+            // Use converted cost basis if available, otherwise use base
+            const costBasis = (holding.costBasisConverted !== undefined ? holding.costBasisConverted : holding.totalCostInBase);
+            
+            stats.totalInvested += costBasis;
             
             if (performance.currentValueInBase !== null) {
                 stats.totalCurrentValue += performance.currentValueInBase;
                 
                 if (performance.arr !== null) {
-                    totalWeightedARR += performance.arr * holding.totalCostInBase;
+                    totalWeightedARR += performance.arr * costBasis;
                 }
             } else {
-                stats.totalCurrentValue += holding.totalCostInBase;
+                stats.totalCurrentValue += costBasis;
             }
             
             stats.holdings.push(holding);
