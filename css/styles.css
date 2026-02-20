@@ -1267,25 +1267,53 @@ button {
     gap: 10px;
   }
 
-  /* Compact holding rows — hide middle cols on small screens */
+  /* Mobile holding cards: show all data in a 2-row card layout */
   .holdings-col-header,
-  .holding-row {
-    grid-template-columns: 1fr 130px;
-  }
-
-  .holdings-col-header > *:not(:first-child):not(:last-child),
-  .holding-row > *:not(.holding-identity):not(.holding-pl) {
+  .holdings-col-header-detail {
     display: none;
   }
 
-  .holdings-col-header-detail,
+  .holding-row,
   .holding-row-detail {
-    grid-template-columns: 1fr 130px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 10px;
+    padding: 10px 12px;
+    align-items: flex-start;
   }
 
-  .holdings-col-header-detail > *:not(:first-child):not(:last-child),
+  /* Forces a line-break between row 1 (identity + pl) and row 2 (stats) */
+  .holding-row::after,
+  .holding-row-detail::after {
+    content: '';
+    flex: 1 1 100%;
+    order: 2;
+    height: 0;
+  }
+
+  .holding-row .holding-identity,
+  .holding-row-detail .holding-identity {
+    order: 1;
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .holding-row .holding-pl,
+  .holding-row-detail .holding-pl {
+    order: 1;
+    flex: 0 0 auto;
+    text-align: right;
+  }
+
+  /* Show all previously-hidden data in a secondary info row */
+  .holding-row > *:not(.holding-identity):not(.holding-pl),
   .holding-row-detail > *:not(.holding-identity):not(.holding-pl) {
-    display: none;
+    order: 3;
+    display: flex;
+    flex: 0 0 auto;
+    align-items: center;
+    font-size: 0.78em;
+    color: var(--text-secondary);
   }
 
   .filters-bar { flex-direction: column; }
