@@ -35,9 +35,9 @@ Priority levels: 🔴 High | 🟡 Medium | 🟢 Low
 ---
 
 ### FX Rate API Integration
-**Status:** Manual entry only  
-**Effort:** 2 hours  
-**Dependencies:** API selection (exchangerate-api.io recommended)  
+**Status:** ✅ Complete
+**Effort:** 2 hours
+**Dependencies:** API selection (exchangerate-api.io recommended)
 **Value:** Accurate multi-currency portfolio valuations
 
 **Scope:**
@@ -51,17 +51,18 @@ Priority levels: 🔴 High | 🟡 Medium | 🟢 Low
 ## 🟡 Medium Priority
 
 ### UI/UX Redesign
-**Status:** Basic UI functional  
-**Effort:** 3-4 hours  
-**Dependencies:** None  
+**Status:** ✅ Complete
+**Effort:** 3-4 hours
+**Dependencies:** None
 **Value:** Better daily user experience
 
 **Scope:**
-- Color scheme update (user choice: dark/light/gradient)
-- Better card layouts with shadows
-- Improved typography
-- Mobile responsiveness
-- Dark mode toggle
+- Dark theme with slate palette + teal accent
+- Compact Yahoo Finance-style holding rows
+- Gmail-style pill nav tabs
+- Green/red P/L and ARR colour coding
+- Consistent card design across all pages
+- Mobile responsive
 
 ---
 
