@@ -304,146 +304,114 @@ const UI = {
         // Get last 5 transactions
         const recent = transactions.slice(-5).reverse();
         
-        let html = '<table style="width: 100%; border-collapse: collapse;">';
-        html += '<thead><tr style="border-bottom: 2px solid #e2e8f0;">';
-        html += '<th style="padding: 10px; text-align: left;">Date</th>';
-        html += '<th style="padding: 10px; text-align: left;">Symbol</th>';
-        html += '<th style="padding: 10px; text-align: left;">Type</th>';
-        html += '<th style="padding: 10px; text-align: right;">Quantity</th>';
-        html += '<th style="padding: 10px; text-align: right;">Price</th>';
-        html += '<th style="padding: 10px; text-align: right;">Total</th>';
+        let html = '<table class="data-table">';
+        html += '<thead><tr>';
+        html += '<th>Date</th><th>Symbol</th><th>Type</th>';
+        html += '<th class="right">Qty</th><th class="right">Price</th><th class="right">Total</th>';
         html += '</tr></thead><tbody>';
-        
+
         recent.forEach(txn => {
-            html += '<tr style="border-bottom: 1px solid #e2e8f0;">';
-            html += `<td style="padding: 10px;">${txn.date}</td>`;
-            html += `<td style="padding: 10px; font-weight: 600;">${txn.symbol}</td>`;
-            html += `<td style="padding: 10px;"><span style="padding: 4px 8px; border-radius: 4px; background: ${txn.type === 'buy' ? '#c6f6d5' : '#fed7d7'}; color: ${txn.type === 'buy' ? '#22543d' : '#742a2a'};">${txn.type.toUpperCase()}</span></td>`;
-            html += `<td style="padding: 10px; text-align: right;">${txn.quantity}</td>`;
-            html += `<td style="padding: 10px; text-align: right;">${this.formatCurrency(txn.price, txn.currency)}</td>`;
-            html += `<td style="padding: 10px; text-align: right; font-weight: 600;">${this.formatCurrency(txn.total, txn.currency)}</td>`;
+            const badgeClass = txn.type === 'buy' ? 'badge-buy' : 'badge-sell';
+            html += '<tr>';
+            html += `<td class="muted">${txn.date}</td>`;
+            html += `<td class="bold">${txn.symbol}</td>`;
+            html += `<td><span class="${badgeClass}">${txn.type.toUpperCase()}</span></td>`;
+            html += `<td class="right">${txn.quantity}</td>`;
+            html += `<td class="right">${this.formatCurrency(txn.price, txn.currency)}</td>`;
+            html += `<td class="right bold">${this.formatCurrency(txn.total, txn.currency)}</td>`;
             html += '</tr>';
         });
-        
+
         html += '</tbody></table>';
         listEl.innerHTML = html;
     },
     
     
     /**
-     * Update holdings cards in Overview (replaces recent transactions)
+     * Update holdings in Overview — compact Yahoo Finance style rows
      */
      updateOverviewHoldings: function(holdings, baseCurrency) {
         const listEl = document.getElementById('recent-transactions-list');
-        
+
         if (!holdings || holdings.length === 0) {
             listEl.innerHTML = '<p class="empty-state">No holdings yet.</p>';
             return;
         }
-        
-        let html = '<div style="display: grid; gap: 15px;">';
-        
+
+        // Column header
+        let html = `
+            <div class="holdings-col-header">
+                <span>Symbol</span>
+                <span>Qty</span>
+                <span>Price</span>
+                <span class="right">Value (${baseCurrency})</span>
+                <span class="right">P/L · ARR</span>
+            </div>
+        `;
+
         holdings.forEach(holding => {
             const perf = holding.performance;
-            
-            // Check if we have performance data at all
             const hasPerformanceData = perf && perf.currentPrice !== null && perf.currentPrice !== undefined;
-            
-            // Check if historical FX missing
-            const missingHistoricalFX = holding.transactions.some(t => 
-                t.fxRateSource === 'fallback' || 
+            const missingHistoricalFX = holding.transactions.some(t =>
+                t.fxRateSource === 'fallback' ||
                 (t.currency !== baseCurrency && !t.fxRate)
             );
-            
-            // Determine P/L color
-            let plClass = 'neutral';
-            let plSign = '';
+            const priceCurrency = (perf && perf.priceCurrency) || holding.currency;
+
+            // P/L
+            let plClass = 'neutral', plSign = '';
             if (perf && perf.gainLoss !== null) {
-                if (perf.gainLoss > 0) {
-                    plClass = 'positive';
-                    plSign = '+';
-                } else if (perf.gainLoss < 0) {
-                    plClass = 'negative';
-                }
+                if (perf.gainLoss > 0)      { plClass = 'positive'; plSign = '+'; }
+                else if (perf.gainLoss < 0) { plClass = 'negative'; }
             }
-            
-            // ARR color
-            let arrClass = 'neutral';
-            let arrSign = '';
+
+            // ARR
+            let arrClass = 'neutral', arrSign = '';
             if (perf && perf.arr !== null) {
-                if (perf.arr > 0) {
-                    arrClass = 'positive';
-                    arrSign = '+';
-                } else if (perf.arr < 0) {
-                    arrClass = 'negative';
-                }
+                if (perf.arr > 0)      { arrClass = 'positive'; arrSign = '+'; }
+                else if (perf.arr < 0) { arrClass = 'negative'; }
             }
-            
+
+            const priceAlert = !hasPerformanceData
+                ? `<div class="holding-alert holding-alert-price">⚠ Price unavailable — showing cost basis</div>` : '';
+            const fxAlert = missingHistoricalFX
+                ? `<div class="holding-alert holding-alert-fx">⚠ Historical FX missing — cost basis may be inaccurate</div>` : '';
+
+            const displayValue = hasPerformanceData && perf.currentValueInBase !== null
+                ? this.formatCurrency(perf.currentValueInBase, baseCurrency)
+                : this.formatCurrency(holding.costBasisConverted !== undefined ? holding.costBasisConverted : holding.totalCostInBase, baseCurrency);
+
             html += `
-                <div style="background: #f7fafc; padding: 20px; border-radius: 8px; border-left: 4px solid #667eea;">
-                    ${!hasPerformanceData ? `
-                        <div style="background: #fee; color: #c53030; padding: 8px 12px; border-radius: 4px; font-size: 0.85em; margin-bottom: 12px;">
-                            ⚠️ Unable to fetch current price - showing cost basis only
-                        </div>
-                    ` : ''}
-                    
-                    ${missingHistoricalFX ? `
-                        <div style="background: #fef3c7; color: #92400e; padding: 8px 12px; border-radius: 4px; font-size: 0.85em; margin-bottom: 12px;">
-                            ⚠️ Historical FX rate missing - cost basis may be inaccurate
-                        </div>
-                    ` : ''}
-                    
-                    <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 15px;">
-                        <div>
-                            <h3 style="margin: 0; color: #2d3748; font-size: 1.4em;">${holding.symbol}</h3>
-                            <p style="margin: 5px 0; color: #718096; font-size: 0.9em;">${holding.company || 'Unknown Company'}</p>
-                        </div>
+                ${priceAlert}${fxAlert}
+                <div class="holding-row">
+                    <div class="holding-identity">
+                        <div class="holding-symbol">${holding.symbol}</div>
+                        <div class="holding-company">${holding.company || 'Unknown'}</div>
                     </div>
-                    
-                    <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px;">
-                        <div>
-                            <div style="color: #718096; font-size: 0.85em;">Current Value (${baseCurrency})</div>
-                            <div style="font-weight: 700; color: #2d3748; font-size: 1.2em;">
-                                ${hasPerformanceData && perf.currentValueInBase !== null 
-                                    ? this.formatCurrency(perf.currentValueInBase, baseCurrency) 
-                                    : '<span style="color: #a0aec0;">N/A</span>'}
-                            </div>
-                        </div>
-                        <div>
-                            <div style="color: #718096; font-size: 0.85em;">Cost Basis (${baseCurrency})</div>
-                            <div style="font-weight: 600; color: #2d3748; font-size: 1.1em;">
-                                ${holding.costBasisConverted !== undefined 
-                                    ? this.formatCurrency(holding.costBasisConverted, baseCurrency)
-                                    : this.formatCurrency(holding.totalCostInBase, baseCurrency)}
-                            </div>
-                        </div>
-                            <div style="color: #718096; font-size: 0.85em;">P/L (${baseCurrency})</div>
-                            <div style="font-weight: 700; font-size: 1.2em;" class="${plClass}">
-                                ${hasPerformanceData && perf.gainLoss !== null 
-                                    ? plSign + this.formatCurrency(Math.abs(perf.gainLoss), baseCurrency)
-                                    : '<span style="color: #a0aec0;">N/A</span>'}
-                            </div>
-                            <div style="color: #718096; font-size: 0.85em; margin-top: 2px;">
-                                ${hasPerformanceData && perf.gainLossPercent !== null ? plSign + perf.gainLossPercent.toFixed(2) + '%' : ''}
-                            </div>
-                        </div>
-                        <div>
-                            <div style="color: #718096; font-size: 0.85em;">ARR</div>
-                            <div style="font-weight: 700; font-size: 1.2em;" class="${arrClass}">
-                                ${hasPerformanceData && perf.arr !== null 
-                                    ? arrSign + perf.arr.toFixed(2) + '%' 
-                                    : '<span style="color: #a0aec0;">N/A</span>'}
-                            </div>
-                            <div style="color: #718096; font-size: 0.85em; margin-top: 2px;">
-                                ${perf && perf.yearsHeld ? perf.yearsHeld.toFixed(2) + ' years' : ''}
-                            </div>
-                        </div>
+                    <div class="holding-qty">${holding.quantity.toLocaleString()} sh</div>
+                    <div class="holding-price">
+                        ${hasPerformanceData && perf.currentPrice
+                            ? this.formatCurrency(perf.currentPrice, priceCurrency) + `<span class="holding-price-currency">${priceCurrency}</span>`
+                            : '<span style="color:var(--text-muted)">—</span>'}
+                    </div>
+                    <div class="holding-value">${displayValue}</div>
+                    <div class="holding-pl ${plClass}">
+                        <span class="holding-pl-amount">
+                            ${hasPerformanceData && perf.gainLoss !== null
+                                ? plSign + this.formatCurrency(Math.abs(perf.gainLoss), baseCurrency)
+                                : '—'}
+                        </span>
+                        <span class="holding-pl-pct">
+                            ${hasPerformanceData && perf.gainLossPercent !== null
+                                ? plSign + perf.gainLossPercent.toFixed(2) + '%' : ''}
+                        </span>
+                        ${hasPerformanceData && perf.arr !== null
+                            ? `<span class="holding-arr ${arrClass}">${arrSign}${perf.arr.toFixed(2)}% ARR</span>` : ''}
                     </div>
                 </div>
             `;
         });
-        
-        html += '</div>';
+
         listEl.innerHTML = html;
     },
 
@@ -503,115 +471,69 @@ const UI = {
             return;
         }
         
-        let html = '<div style="display: grid; gap: 20px;">';
-        
+        const baseCurrency = CONFIG.baseCurrency;
+
+        // Column header
+        let html = `
+            <div class="holdings-col-header-detail">
+                <span>Symbol</span>
+                <span>Qty</span>
+                <span>Price</span>
+                <span class="right">Cost (${baseCurrency})</span>
+                <span class="right">Value (${baseCurrency})</span>
+                <span class="right">P/L · ARR</span>
+            </div>
+        `;
+
         holdings.forEach(holding => {
             const perf = holding.performance || {};
-            
-            // Use price currency from API if available, else fall back to holding currency
             const priceCurrency = perf.priceCurrency || holding.currency;
-            
-            // Determine P/L color
-            let plClass = 'neutral';
-            let plSign = '';
-            if (perf.gainLoss > 0) {
-                plClass = 'positive';
-                plSign = '+';
-            } else if (perf.gainLoss < 0) {
-                plClass = 'negative';
-            }
-            
-            // ARR color
-            let arrClass = 'neutral';
-            let arrSign = '';
-            if (perf.arr > 0) {
-                arrClass = 'positive';
-                arrSign = '+';
-            } else if (perf.arr < 0) {
-                arrClass = 'negative';
-            }
-            
+
+            let plClass = 'neutral', plSign = '';
+            if (perf.gainLoss > 0)      { plClass = 'positive'; plSign = '+'; }
+            else if (perf.gainLoss < 0) { plClass = 'negative'; }
+
+            let arrClass = 'neutral', arrSign = '';
+            if (perf.arr > 0)      { arrClass = 'positive'; arrSign = '+'; }
+            else if (perf.arr < 0) { arrClass = 'negative'; }
+
+            const priceDisplay = perf && perf.currentPrice
+                ? this.formatCurrency(perf.currentPrice, priceCurrency) +
+                  (priceCurrency !== baseCurrency && perf.currentPriceInBase
+                    ? `<span class="holding-price-currency">${priceCurrency}</span>` : '')
+                : '<span style="color:var(--text-muted)">—</span>';
+
             html += `
-                <div style="background: #f7fafc; padding: 25px; border-radius: 10px; border-left: 5px solid #667eea;">
-                    <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 20px;">
-                        <div>
-                            <h3 style="margin: 0; color: #2d3748; font-size: 1.8em;">${holding.symbol}</h3>
-                            <p style="margin: 5px 0; color: #718096;">${holding.company || 'Unknown Company'}</p>
-                        </div>
-                        <div style="text-align: right;">
-                            <div style="font-size: 1.2em; font-weight: 600; color: #667eea;">
-                                ${perf && perf.currentPrice 
-                                    ? this.formatCurrency(perf.currentPrice, priceCurrency) + 
-                                      (priceCurrency !== CONFIG.baseCurrency && perf.currentPriceInBase 
-                                        ? ' (' + this.formatCurrency(perf.currentPriceInBase, CONFIG.baseCurrency) + ')' 
-                                        : '')
-                                    : 'Price N/A'}
-                            </div>
-                            <div style="color: #718096; font-size: 0.9em;">Current Price</div>
-                        </div>
+                <div class="holding-row-detail">
+                    <div class="holding-identity">
+                        <div class="holding-symbol">${holding.symbol}</div>
+                        <div class="holding-company">${holding.company || 'Unknown'}</div>
                     </div>
-                    
-                    <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; margin-bottom: 15px;">
-                        <div>
-                            <div style="color: #718096; font-size: 0.9em;">Quantity</div>
-                            <div style="font-weight: 600; color: #2d3748; font-size: 1.3em;">${holding.quantity.toLocaleString()} shares</div>
-                        </div>
-                        <div>
-                            <div style="color: #718096; font-size: 0.9em;">ACB (${CONFIG.baseCurrency})</div>
-                            <div style="font-weight: 600; color: #2d3748;">
-                                ${perf && perf.acb ? this.formatCurrency(perf.acb, CONFIG.baseCurrency) : 'N/A'}
-                            </div>
-                        </div>
-                        <div>
-                            <div style="color: #718096; font-size: 0.9em;">Cost Basis (${CONFIG.baseCurrency})</div>
-                            <div style="font-weight: 600; color: #2d3748;">${this.formatCurrency(holding.totalCostInBase, CONFIG.baseCurrency)}</div>
-                        </div>
-                        <div>
-                            <div style="color: #718096; font-size: 0.9em;">Current Value (${CONFIG.baseCurrency})</div>
-                            <div style="font-weight: 600; color: #2d3748;">
-                                ${perf && perf.currentValueInBase 
-                                    ? this.formatCurrency(perf.currentValueInBase, CONFIG.baseCurrency) 
-                                    : 'N/A'}
-                            </div>
-                        </div>
+                    <div class="holding-qty">${holding.quantity.toLocaleString()} sh</div>
+                    <div class="holding-price">${priceDisplay}</div>
+                    <div class="holding-value">${this.formatCurrency(holding.totalCostInBase, baseCurrency)}</div>
+                    <div class="holding-value">
+                        ${perf && perf.currentValueInBase
+                            ? this.formatCurrency(perf.currentValueInBase, baseCurrency)
+                            : '<span style="color:var(--text-muted)">—</span>'}
                     </div>
-                    
-                    ${perf && perf.gainLoss !== null ? `
-                    <div style="margin-top: 20px; padding-top: 20px; border-top: 2px solid #e2e8f0;">
-                        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px;">
-                            <div>
-                                <div style="color: #718096; font-size: 0.9em; margin-bottom: 5px;">Profit/Loss (${CONFIG.baseCurrency})</div>
-                                <div style="font-size: 1.4em; font-weight: 700;" class="${plClass}">
-                                    ${plSign}${this.formatCurrency(Math.abs(perf.gainLoss), CONFIG.baseCurrency)}
-                                </div>
-                                <div style="color: #718096; font-size: 0.95em; margin-top: 3px;">
-                                    ${perf.gainLossPercent !== null ? plSign + perf.gainLossPercent.toFixed(2) + '%' : ''}
-                                </div>
-                            </div>
-                            <div>
-                                <div style="color: #718096; font-size: 0.9em; margin-bottom: 5px;">Annualized Return</div>
-                                <div style="font-size: 1.4em; font-weight: 700;" class="${arrClass}">
-                                    ${perf.arr !== null ? arrSign + perf.arr.toFixed(2) + '%' : 'N/A'}
-                                </div>
-                                <div style="color: #718096; font-size: 0.95em; margin-top: 3px;">
-                                    ${perf.yearsHeld ? perf.yearsHeld.toFixed(2) + ' years held' : ''}
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    ` : ''}
-                    
-                    <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #e2e8f0;">
-                        <div style="color: #718096; font-size: 0.85em;">
-                            Account: <strong>${holding.accountId || 'N/A'}</strong> • 
-                            Currency: <strong>${holding.currency}</strong>
-                        </div>
+                    <div class="holding-pl ${plClass}">
+                        <span class="holding-pl-amount">
+                            ${perf.gainLoss !== null && perf.gainLoss !== undefined
+                                ? plSign + this.formatCurrency(Math.abs(perf.gainLoss), baseCurrency)
+                                : '—'}
+                        </span>
+                        <span class="holding-pl-pct">
+                            ${perf.gainLossPercent !== null && perf.gainLossPercent !== undefined
+                                ? plSign + perf.gainLossPercent.toFixed(2) + '%' : ''}
+                        </span>
+                        ${perf.arr !== null && perf.arr !== undefined
+                            ? `<span class="holding-arr ${arrClass}">${arrSign}${perf.arr.toFixed(2)}% ARR</span>` : ''}
                     </div>
                 </div>
             `;
         });
-        
-        html += '</div>';
+
         listEl.innerHTML = html;
     },
     
@@ -637,40 +559,39 @@ const UI = {
             return;
         }
         
-        let html = '<table style="width: 100%; border-collapse: collapse;">';
-        html += '<thead><tr style="border-bottom: 2px solid #e2e8f0; background: #f7fafc;">';
-        html += '<th style="padding: 15px; text-align: left;">Date</th>';
-        html += '<th style="padding: 15px; text-align: left;">Symbol</th>';
-        html += '<th style="padding: 15px; text-align: left;">Exchange</th>';
-        html += '<th style="padding: 15px; text-align: left;">Type</th>';
-        html += '<th style="padding: 15px; text-align: right;">Quantity</th>';
-        html += '<th style="padding: 15px; text-align: right;">Price</th>';
-        html += '<th style="padding: 15px; text-align: right;">Fees</th>';
-        html += '<th style="padding: 15px; text-align: right;">Total</th>';
-        html += '<th style="padding: 15px; text-align: left;">Account</th>';
-        html += '<th style="padding: 15px; text-align: left;">Actions</th>';
+        let html = '<table class="data-table">';
+        html += '<thead><tr>';
+        html += '<th>Date</th>';
+        html += '<th>Symbol</th>';
+        html += '<th>Exch</th>';
+        html += '<th>Type</th>';
+        html += '<th class="right">Qty</th>';
+        html += '<th class="right">Price</th>';
+        html += '<th class="right">Fees</th>';
+        html += '<th class="right">Total</th>';
+        html += '<th>Account</th>';
+        html += '<th></th>';
         html += '</tr></thead><tbody>';
-        
+
         // Show newest first
         const sorted = [...filteredTxns].reverse();
-        
+
         sorted.forEach(txn => {
-            html += '<tr style="border-bottom: 1px solid #e2e8f0;">';
-            html += `<td style="padding: 15px;">${txn.date}</td>`;
-            html += `<td style="padding: 15px; font-weight: 600;">${txn.symbol}</td>`;
-            html += `<td style="padding: 15px; color: #718096; font-size: 0.9em;">${txn.exchange || 'Auto'}</td>`;
-            html += `<td style="padding: 15px;"><span style="padding: 4px 8px; border-radius: 4px; background: ${txn.type === 'buy' ? '#c6f6d5' : '#fed7d7'}; color: ${txn.type === 'buy' ? '#22543d' : '#742a2a'};">${txn.type.toUpperCase()}</span></td>`;
-            html += `<td style="padding: 15px; text-align: right;">${txn.quantity}</td>`;
-            html += `<td style="padding: 15px; text-align: right;">${this.formatCurrency(txn.price, txn.currency)}</td>`;
-            html += `<td style="padding: 15px; text-align: right;">${this.formatCurrency(txn.fees || 0, txn.currency)}</td>`;
-            html += `<td style="padding: 15px; text-align: right; font-weight: 600;">${this.formatCurrency(txn.total, txn.currency)}</td>`;
-            html += `<td style="padding: 15px;">${txn.accountId || 'N/A'}</td>`;
-            html += `<td style="padding: 15px;">
-                <button class="btn-secondary btn-small" onclick="UI.deleteTransaction('${txn.id}')">🗑️ Delete</button>
-            </td>`;
+            const badgeClass = txn.type === 'buy' ? 'badge-buy' : 'badge-sell';
+            html += '<tr>';
+            html += `<td class="muted">${txn.date}</td>`;
+            html += `<td class="bold">${txn.symbol}</td>`;
+            html += `<td class="muted">${txn.exchange || '—'}</td>`;
+            html += `<td><span class="${badgeClass}">${txn.type.toUpperCase()}</span></td>`;
+            html += `<td class="right">${txn.quantity}</td>`;
+            html += `<td class="right">${this.formatCurrency(txn.price, txn.currency)}</td>`;
+            html += `<td class="right muted">${this.formatCurrency(txn.fees || 0, txn.currency)}</td>`;
+            html += `<td class="right bold">${this.formatCurrency(txn.total, txn.currency)}</td>`;
+            html += `<td class="muted">${txn.accountId || '—'}</td>`;
+            html += `<td><button class="btn-icon danger" onclick="UI.deleteTransaction('${txn.id}')">Delete</button></td>`;
             html += '</tr>';
         });
-        
+
         html += '</tbody></table>';
         listEl.innerHTML = html;
     },
@@ -788,31 +709,18 @@ const UI = {
     },
     
     /**
-     * Show a status message
+     * Show a status message (toast notification)
      */
      showMessage: function(message, type = 'info') {
-        // Create a toast notification
         const toast = document.createElement('div');
-        toast.style.cssText = `
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            padding: 15px 25px;
-            background: ${type === 'success' ? '#48bb78' : type === 'error' ? '#f56565' : '#4299e1'};
-            color: white;
-            border-radius: 10px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
-            z-index: 10000;
-            animation: slideIn 0.3s ease;
-        `;
+        toast.className = `toast toast-${type}`;
         toast.textContent = message;
-        
+
         document.body.appendChild(toast);
-        
-        // Remove after 3 seconds
+
         setTimeout(() => {
-            toast.style.animation = 'slideOut 0.3s ease';
-            setTimeout(() => toast.remove(), 300);
+            toast.style.animation = 'slideOut 0.25s ease';
+            setTimeout(() => toast.remove(), 250);
         }, 3000);
     },
 
@@ -1160,7 +1068,7 @@ const UI = {
                             <div class="account-detail-value">${txnCount}</div>
                         </div>
                     </div>
-                    ${account.notes ? `<div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #e2e8f0; color: #718096; font-size: 0.9em;">📝 ${account.notes}</div>` : ''}
+                    ${account.notes ? `<div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); color: var(--text-muted); font-size: 0.82em;">📝 ${account.notes}</div>` : ''}
                 </div>
             `;
         });
@@ -1459,20 +1367,17 @@ const UI = {
             return;
         }
         
-        let html = '<h3 style="color: white; margin-bottom: 15px;">New Contract Notes:</h3>';
-        html += '<div style="background: white; border-radius: 10px; padding: 20px;">';
-        
+        let html = '';
+
         files.forEach(file => {
             const date = new Date(file.createdTime).toLocaleDateString();
             const size = (file.size / 1024).toFixed(2);
-            
+
             html += `
-                <div style="padding: 15px; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center;">
+                <div class="file-row">
                     <div>
-                        <div style="font-weight: 600; color: #2d3748;">${file.name}</div>
-                        <div style="font-size: 0.9em; color: #718096; margin-top: 5px;">
-                            ${date} • ${size} KB
-                        </div>
+                        <div class="file-name">${file.name}</div>
+                        <div class="file-meta">${date} &bull; ${size} KB</div>
                     </div>
                     <button class="btn-primary btn-small" onclick="UI.processSingleFile('${file.id}', '${file.name}')">
                         Process
@@ -1480,8 +1385,7 @@ const UI = {
                 </div>
             `;
         });
-        
-        html += '</div>';
+
         listEl.innerHTML = html;
     },
     
