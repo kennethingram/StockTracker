@@ -137,7 +137,7 @@ const UI = {
                 html += `<option value="${acc.id}" ${selected}>${statusBadge} ${acc.name}</option>`;
             });
             html += '</select>';
-            accountFilterEl.innerHTML = html || '<p style="color: #a0aec0; font-size: 0.9em;">No accounts</p>';
+            accountFilterEl.innerHTML = html || '<p style="color: var(--text-muted); font-size: 0.85em;">No accounts</p>';
         }
         
         // Populate holder filters as multi-select dropdown
@@ -149,7 +149,7 @@ const UI = {
                 html += `<option value="${holder}" ${selected}>${holder}</option>`;
             });
             html += '</select>';
-            holderFilterEl.innerHTML = html || '<p style="color: #a0aec0; font-size: 0.9em;">No holders</p>';
+            holderFilterEl.innerHTML = html || '<p style="color: var(--text-muted); font-size: 0.85em;">No holders</p>';
         }
     },
     
@@ -1205,7 +1205,7 @@ const UI = {
         }
         
         if (!summary) {
-            summary = '<p style="color: #a0aec0;">No filters selected</p>';
+            summary = '<p style="color: var(--text-muted);">No filters selected</p>';
         }
         
         summaryEl.innerHTML = summary;
@@ -1363,7 +1363,7 @@ const UI = {
         if (!listEl) return;
         
         if (files.length === 0) {
-            listEl.innerHTML = '<p style="color: #a0aec0; padding: 20px;">No new files to process</p>';
+            listEl.innerHTML = '<p class="empty-state">No new files to process</p>';
             return;
         }
         
