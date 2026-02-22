@@ -454,12 +454,12 @@ const UI = {
         let html = `
             <div class="holdings-col-header">
                 <span>Symbol</span>
-                <span>P/L</span>
-                <span>ARR</span>
-                <span>Value (${baseCurrency})</span>
-                <span>QTY</span>
-                <span>Price</span>
-                <span>ACB (${baseCurrency})</span>
+                <span class="right">P/L</span>
+                <span class="right">ARR</span>
+                <span class="right">Value (${baseCurrency})</span>
+                <span class="right">QTY</span>
+                <span class="right">Price</span>
+                <span class="right">ACB (${baseCurrency})</span>
             </div>
         `;
 
@@ -618,13 +618,13 @@ const UI = {
         let html = `
             <div class="holdings-col-header-detail">
                 <span>Symbol</span>
-                <span>P/L</span>
-                <span>ARR</span>
-                <span>Value (${baseCurrency})</span>
-                <span>QTY</span>
-                <span>Price</span>
-                <span>ACB (${baseCurrency})</span>
-                <span>Cost (${baseCurrency})</span>
+                <span class="right">P/L</span>
+                <span class="right">ARR</span>
+                <span class="right">Value (${baseCurrency})</span>
+                <span class="right">QTY</span>
+                <span class="right">Price</span>
+                <span class="right">ACB (${baseCurrency})</span>
+                <span class="right">Cost (${baseCurrency})</span>
             </div>
         `;
 
