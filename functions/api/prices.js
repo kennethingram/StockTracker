@@ -4,17 +4,6 @@
 // GET /api/prices?source=finnhub&symbol=AAPL
 // GET /api/prices?source=alphavantage&symbol=LGEN.LON
 
-// Only accept requests from our own domain
-function isAllowedOrigin(request) {
-    const origin = request.headers.get('Origin') || '';
-    return (
-        origin.endsWith('.pages.dev') ||
-        origin.includes('localhost') ||
-        origin.includes('127.0.0.1') ||
-        origin === ''
-    );
-}
-
 function corsHeaders(request) {
     const origin = request.headers.get('Origin') || '*';
     return {
@@ -34,10 +23,6 @@ export async function onRequest(context) {
 
     if (request.method !== 'GET') {
         return new Response('Method not allowed', { status: 405 });
-    }
-
-    if (!isAllowedOrigin(request)) {
-        return new Response('Forbidden', { status: 403 });
     }
 
     const url = new URL(request.url);

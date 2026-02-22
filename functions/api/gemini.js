@@ -6,17 +6,6 @@
 
 const GEMINI_BASE = 'https://generativelanguage.googleapis.com/v1beta';
 
-// Only accept requests from our own domain
-function isAllowedOrigin(request) {
-    const origin = request.headers.get('Origin') || '';
-    return (
-        origin.endsWith('.pages.dev') ||
-        origin.includes('localhost') ||
-        origin.includes('127.0.0.1') ||
-        origin === ''
-    );
-}
-
 function corsHeaders(request) {
     const origin = request.headers.get('Origin') || '*';
     return {
@@ -32,10 +21,6 @@ export async function onRequest(context) {
     // Handle CORS preflight
     if (request.method === 'OPTIONS') {
         return new Response(null, { status: 204, headers: corsHeaders(request) });
-    }
-
-    if (!isAllowedOrigin(request)) {
-        return new Response('Forbidden', { status: 403 });
     }
 
     if (!env.GEMINI_API_KEY) {
