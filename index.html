@@ -60,6 +60,7 @@
             <!-- Navigation Bar -->
             <nav class="navbar">
                 <div class="nav-brand">
+                    <button id="hamburger-btn" class="hamburger-btn" aria-label="Menu">☰</button>
                     <h2>📊 StockTracker</h2>
                 </div>
                 <div class="nav-menu">
@@ -67,11 +68,35 @@
                     <button class="nav-btn" data-view="holdings">Holdings</button>
                     <button class="nav-btn" data-view="transactions">Transactions</button>
                     <button class="nav-btn" data-view="accounts">Accounts</button>
-                    <button class="nav-btn" data-view="sync">Sync</button>
+                    <button class="nav-btn" data-view="sync">Import</button>
+                    <button class="nav-btn" data-view="admin">⚙️ Admin</button>
                 </div>
                 <div class="nav-actions">
                     <span id="user-email" class="user-email"></span>
                     <button id="signout-btn" class="btn-secondary">Sign Out</button>
+                </div>
+            </nav>
+
+            <!-- Mobile Sidebar Overlay -->
+            <div id="nav-sidebar-overlay" class="nav-sidebar-overlay"></div>
+
+            <!-- Mobile Sidebar Nav -->
+            <nav id="nav-sidebar" class="nav-sidebar">
+                <div class="nav-sidebar-header">
+                    <span>📊 StockTracker</span>
+                    <button id="sidebar-close-btn" class="sidebar-close-btn">✕</button>
+                </div>
+                <div class="nav-sidebar-links">
+                    <button class="nav-sidebar-btn active" data-view="overview">📊 Overview</button>
+                    <button class="nav-sidebar-btn" data-view="holdings">📦 Holdings</button>
+                    <button class="nav-sidebar-btn" data-view="transactions">📋 Transactions</button>
+                    <button class="nav-sidebar-btn" data-view="accounts">🏦 Accounts</button>
+                    <button class="nav-sidebar-btn" data-view="sync">🔄 Import</button>
+                    <button class="nav-sidebar-btn" data-view="admin">⚙️ Admin</button>
+                </div>
+                <div class="nav-sidebar-footer">
+                    <span id="sidebar-user-email" class="sidebar-email"></span>
+                    <button class="btn-secondary" id="sidebar-signout-btn">Sign Out</button>
                 </div>
             </nav>
             
@@ -215,7 +240,10 @@
                 
                 <!-- Transactions View -->
                 <div id="transactions-view" class="view">
-                    <h1>All Transactions</h1>
+                    <div class="view-header">
+                        <h1>All Transactions</h1>
+                        <button class="btn-secondary btn-sm" onclick="UI.exportTransactionsCSV()">⬇ Export CSV</button>
+                    </div>
 
                      <!-- Filters Bar -->
                     <div class="filters-bar">
@@ -249,15 +277,10 @@
                     </div>
                 </div>
                 
-                <!-- Sync View -->
+                <!-- Sync / Import View -->
                 <div id="sync-view" class="view">
-                    <h1>Sync Contract Notes</h1>
-                    
-                    <div class="sync-info">
-                        <p>📁 Connected to Google Drive folder: <strong id="folder-name">Not set</strong></p>
-                        <button id="select-folder-btn" class="btn-primary">Select Drive Folder</button>
-                    </div>
-                    
+                    <h1>Import Contract Notes</h1>
+
                     <div class="sync-actions">
                         <button id="scan-new-files-btn" class="btn-primary">
                             🔍 Scan for New Contract Notes
@@ -349,9 +372,53 @@
                         </div>
                     </div>
                 </div>
+                <!-- Admin View -->
+                <div id="admin-view" class="view">
+                    <h1>Administration</h1>
+
+                    <div class="admin-section">
+                        <h2>Contract Notes Folder</h2>
+                        <p>Google Drive folder for contract notes: <strong id="admin-folder-name">Loading…</strong></p>
+                        <button id="admin-select-folder-btn" class="btn-secondary">Change Folder</button>
+                    </div>
+
+                    <div class="admin-section">
+                        <h2>Reporting Currency</h2>
+                        <p>All portfolio totals are converted to this currency.</p>
+                        <div style="display:flex; gap:10px; align-items:center; margin-top:8px;">
+                            <select id="admin-base-currency" style="flex:1; max-width:280px;">
+                                <!-- Populated by JS from CONFIG.supportedCurrencies -->
+                            </select>
+                            <button class="btn-primary" onclick="UI.saveBaseCurrency()">Save</button>
+                        </div>
+                    </div>
+
+                    <div class="admin-section">
+                        <h2>Price Data</h2>
+                        <p>Alpha Vantage API calls today: <strong id="admin-av-calls">—</strong> / 25</p>
+                        <div style="display:flex; gap:10px; margin-top:8px;">
+                            <button class="btn-secondary" onclick="UI.clearPriceCache()">Clear Price Cache</button>
+                        </div>
+                    </div>
+
+                    <div class="admin-section">
+                        <h2>Export Data</h2>
+                        <p>Download a full backup of your transactions and accounts.</p>
+                        <div style="display:flex; gap:10px; margin-top:8px;">
+                            <button class="btn-secondary" onclick="UI.exportDatabaseJSON()">⬇ Download JSON Backup</button>
+                        </div>
+                    </div>
+
+                    <div class="admin-section admin-danger">
+                        <h2>Danger Zone</h2>
+                        <p>Permanently delete all transactions, accounts and settings. This cannot be undone.</p>
+                        <button class="btn-danger" style="margin-top:8px;" onclick="UI.clearAllData()">Clear All Data</button>
+                    </div>
+                </div>
+
             </main>
         </div>
-        
+
         <!-- Loading Overlay (shown during operations) -->
         <div id="loading-overlay" class="loading-overlay">
             <div class="spinner"></div>

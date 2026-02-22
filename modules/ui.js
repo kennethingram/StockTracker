@@ -11,12 +11,16 @@ const UI = {
     // Track current editing account
     editingAccountId: null,
     
-    // Track active filters per view
-    activeFilters: {
-        overview: { accounts: [], holders: [] },
-        holdings: { accounts: [], holders: [] },
-        transactions: { accounts: [], holders: [] }
-    },
+    // Shared filter state — same filters applied across Overview, Holdings, Transactions
+    activeFilters: { accounts: [], holders: [] },
+
+    // Portfolio stats cache — invalidated on price refresh or transaction change
+    _statsCache: null,
+    _statsCacheKey: null,
+    _statsCacheVersion: 0,
+
+    // Auto-scan throttle for Sync page
+    _lastSyncScan: 0,
     
     // Track current favorite being saved
     savingFavoriteForView: null,
@@ -31,12 +35,19 @@ const UI = {
      */
      init: function() {
         console.log('UI module initializing...');
-        
+
+        // Load user-saved reporting currency preference
+        const savedCurrency = localStorage.getItem('baseCurrency');
+        if (savedCurrency) {
+            CONFIG.baseCurrency = savedCurrency;
+            this.selectedOverviewCurrency = savedCurrency;
+        }
+
         // Initialize auth module first
         if (typeof Auth !== 'undefined') {
             Auth.init();
         }
-        
+
         // Set up navigation buttons
         this.setupNavigation();
         
@@ -59,47 +70,68 @@ const UI = {
      * Overview, Holdings, Transactions, Sync
      */
      setupNavigation: function() {
-        const navButtons = document.querySelectorAll('.nav-btn');
-        
-        navButtons.forEach(button => {
+        // Desktop pill tab buttons
+        document.querySelectorAll('.nav-btn').forEach(button => {
             button.addEventListener('click', (e) => {
                 const viewName = e.target.getAttribute('data-view');
                 this.switchView(viewName);
             });
         });
+
+        // Mobile hamburger sidebar
+        const hamburgerBtn = document.getElementById('hamburger-btn');
+        const sidebarEl = document.getElementById('nav-sidebar');
+        const overlayEl = document.getElementById('nav-sidebar-overlay');
+        const closeBtn = document.getElementById('sidebar-close-btn');
+
+        const openSidebar = () => {
+            sidebarEl.classList.add('open');
+            overlayEl.classList.add('open');
+        };
+        const closeSidebar = () => {
+            sidebarEl.classList.remove('open');
+            overlayEl.classList.remove('open');
+        };
+
+        if (hamburgerBtn) hamburgerBtn.addEventListener('click', openSidebar);
+        if (closeBtn) closeBtn.addEventListener('click', closeSidebar);
+        if (overlayEl) overlayEl.addEventListener('click', closeSidebar);
+
+        document.querySelectorAll('.nav-sidebar-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                this.switchView(btn.getAttribute('data-view'));
+                closeSidebar();
+            });
+        });
+
+        const sidebarSignout = document.getElementById('sidebar-signout-btn');
+        if (sidebarSignout) sidebarSignout.addEventListener('click', () => Auth.signOut());
     },
-    
+
     /**
      * Switch between different views in the dashboard
      */
      switchView: function(viewName) {
         console.log('Switching to view:', viewName);
-        
+
         // Update current view
         this.currentView = viewName;
-        
-        // Remove active class from all nav buttons
-        document.querySelectorAll('.nav-btn').forEach(btn => {
-            btn.classList.remove('active');
-        });
-        
-        // Add active class to clicked button
-        const activeBtn = document.querySelector(`[data-view="${viewName}"]`);
-        if (activeBtn) {
-            activeBtn.classList.add('active');
-        }
-        
-        // Hide all views
-        document.querySelectorAll('.view').forEach(view => {
-            view.classList.remove('active');
-        });
-        
-        // Show the selected view
+
+        // Update desktop pill nav active state
+        document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
+        const activeBtn = document.querySelector(`.nav-btn[data-view="${viewName}"]`);
+        if (activeBtn) activeBtn.classList.add('active');
+
+        // Update mobile sidebar active state
+        document.querySelectorAll('.nav-sidebar-btn').forEach(btn => btn.classList.remove('active'));
+        const activeSidebarBtn = document.querySelector(`.nav-sidebar-btn[data-view="${viewName}"]`);
+        if (activeSidebarBtn) activeSidebarBtn.classList.add('active');
+
+        // Hide all views, show selected
+        document.querySelectorAll('.view').forEach(view => view.classList.remove('active'));
         const activeView = document.getElementById(`${viewName}-view`);
-        if (activeView) {
-            activeView.classList.add('active');
-        }
-        
+        if (activeView) activeView.classList.add('active');
+
         // Load data for the view
         this.loadViewData(viewName);
     },
@@ -132,21 +164,21 @@ const UI = {
         if (accountFilterEl) {
             let html = '<select multiple class="multi-select-dropdown" id="' + viewName + '-account-select" onchange="UI.onMultiSelectChange(\'' + viewName + '\', \'accounts\')">';
             accounts.forEach(acc => {
-                const selected = this.activeFilters[viewName].accounts.includes(acc.id) ? 'selected' : '';
+                const selected = this.activeFilters.accounts.includes(acc.id) ? 'selected' : '';
                 const statusBadge = acc.isActive ? '🟢' : '⚫';
                 html += `<option value="${acc.id}" ${selected}>${statusBadge} ${acc.name}</option>`;
             });
             html += '</select>';
             accountFilterEl.innerHTML = html || '<p style="color: var(--text-muted); font-size: 0.85em;">No accounts</p>';
         }
-        
+
         // Populate holder filters as multi-select dropdown
         const holderFilterEl = document.getElementById(`${viewName}-holder-filters`);
         if (holderFilterEl) {
             let html = '<select multiple class="multi-select-dropdown" id="' + viewName + '-holder-select" onchange="UI.onMultiSelectChange(\'' + viewName + '\', \'holders\')">';
             holders.forEach(holder => {
-                const selected = this.activeFilters[viewName].holders.includes(holder) ? 'selected' : '';
-                html += `<option value="${holder}" ${selected}>${holder}</option>`;
+                const selected = this.activeFilters.holders.includes(holder) ? 'selected' : '';
+                html += `<option value="${holder}" ${selected}>🟢 ${holder}</option>`;
             });
             html += '</select>';
             holderFilterEl.innerHTML = html || '<p style="color: var(--text-muted); font-size: 0.85em;">No holders</p>';
@@ -165,8 +197,8 @@ const UI = {
         // Get selected values
         const selected = Array.from(selectEl.selectedOptions).map(option => option.value);
         
-        // Update active filters
-        this.activeFilters[viewName][filterType] = selected;
+        // Update shared active filters
+        this.activeFilters[filterType] = selected;
         
         console.log('Filters updated:', this.activeFilters[viewName]);
         
@@ -199,6 +231,9 @@ const UI = {
             case 'sync':
                 this.updateSyncView();
                 break;
+            case 'admin':
+                this.updateAdminView();
+                break;
         }
     },
 
@@ -207,6 +242,23 @@ const UI = {
      * Update the Overview view
      * Shows portfolio summary stats
      */
+    invalidateStatsCache: function() {
+        this._statsCacheVersion++;
+        this._statsCache = null;
+    },
+
+    _getStats: async function(filteredData, baseCurrency) {
+        const key = `${this._statsCacheVersion}|${filteredData.transactions.length}|${baseCurrency}`;
+        if (this._statsCache && this._statsCacheKey === key) {
+            console.log('Portfolio stats cache hit');
+            return this._statsCache;
+        }
+        const stats = await Portfolio.calculatePortfolioStats(filteredData, baseCurrency);
+        this._statsCache = stats;
+        this._statsCacheKey = key;
+        return stats;
+    },
+
      updateOverview: async function() {
         console.log('Updating overview...');
         
@@ -221,8 +273,8 @@ const UI = {
             return;
         }
         
-        // Get filtered transactions
-        const filteredTxns = this.getFilteredTransactions('overview');
+        // Get filtered transactions (shared filter state)
+        const filteredTxns = this.getFilteredTransactions();
         
         // Create filtered data object
         const filteredData = {
@@ -233,8 +285,8 @@ const UI = {
         // Use selected currency for Overview
         const baseCurrency = this.selectedOverviewCurrency;
         
-        // Calculate portfolio stats with filtered data and selected currency
-        const stats = await Portfolio.calculatePortfolioStats(filteredData, baseCurrency);
+        // Calculate portfolio stats with filtered data and selected currency (cached)
+        const stats = await this._getStats(filteredData, baseCurrency);
         
         // Update stat cards
         document.getElementById('total-value').textContent = 
@@ -454,8 +506,8 @@ const UI = {
         const data = Database.getData();
         if (!data) return;
         
-        // Get filtered transactions
-        const filteredTxns = this.getFilteredTransactions('holdings');
+        // Get filtered transactions (shared filter state)
+        const filteredTxns = this.getFilteredTransactions();
         
         // Create filtered data object
         const filteredData = {
@@ -463,7 +515,7 @@ const UI = {
             transactions: filteredTxns
         };
         
-        const stats = await Portfolio.calculatePortfolioStats(filteredData);
+        const stats = await this._getStats(filteredData, CONFIG.baseCurrency);
         const holdings = stats.holdings;
         
         const listEl = document.getElementById('holdings-list');
@@ -553,7 +605,7 @@ const UI = {
         if (!data) return;
         
         // Get filtered transactions
-        const filteredTxns = this.getFilteredTransactions('transactions');
+        const filteredTxns = this.getFilteredTransactions();
         
         const listEl = document.getElementById('transactions-list');
         
@@ -615,23 +667,139 @@ const UI = {
             console.log('Drive folder ID after load:', Drive.contractNotesFolderId);
         }
         
-        // Update folder name display
-        const folderNameEl = document.getElementById('folder-name');
-        if (folderNameEl) {
-            if (Drive.contractNotesFolderId) {
-                try {
-                    const folderInfo = await Drive.getFolderInfo(Drive.contractNotesFolderId);
-                    folderNameEl.textContent = folderInfo.name;
-                } catch (error) {
-                    console.error('Error loading folder info:', error);
-                    folderNameEl.textContent = 'Error loading folder';
-                }
-            } else {
-                folderNameEl.textContent = 'Not set';
-            }
+        // Auto-scan for new contract notes (throttled to once per 60 seconds)
+        const now = Date.now();
+        if (Drive.contractNotesFolderId && (now - this._lastSyncScan > 60000)) {
+            this._lastSyncScan = now;
+            this.scanForNewFiles();
+        } else if (!Drive.contractNotesFolderId) {
+            console.log('Sync: no folder set — skipping auto-scan');
+        } else {
+            console.log('Sync: auto-scan throttled (last scan was < 60s ago)');
         }
     },
     
+    // ===================================
+    // ADMIN PAGE
+    // ===================================
+
+    updateAdminView: function() {
+        // Folder name
+        if (typeof Drive !== 'undefined') {
+            Drive.loadFolderConfig();
+            const folderEl = document.getElementById('admin-folder-name');
+            if (folderEl) {
+                if (Drive.contractNotesFolderId) {
+                    Drive.getFolderInfo(Drive.contractNotesFolderId)
+                        .then(info => { folderEl.textContent = info.name; })
+                        .catch(() => { folderEl.textContent = 'Error loading folder'; });
+                } else {
+                    folderEl.textContent = 'Not set — click Change Folder';
+                }
+            }
+            const folderBtn = document.getElementById('admin-select-folder-btn');
+            if (folderBtn) folderBtn.onclick = () => Drive.selectFolder();
+        }
+
+        // Base currency dropdown
+        const currSelect = document.getElementById('admin-base-currency');
+        if (currSelect) {
+            currSelect.innerHTML = '';
+            CONFIG.supportedCurrencies.forEach(c => {
+                const opt = document.createElement('option');
+                opt.value = c.code;
+                opt.textContent = `${c.code} — ${c.name}`;
+                if (c.code === CONFIG.baseCurrency) opt.selected = true;
+                currSelect.appendChild(opt);
+            });
+        }
+
+        // Alpha Vantage call counter
+        const avEl = document.getElementById('admin-av-calls');
+        if (avEl) {
+            const stored = localStorage.getItem('av_calls');
+            const data = stored ? JSON.parse(stored) : { count: 0 };
+            const today = new Date().toDateString();
+            avEl.textContent = (data.date === today ? data.count : 0);
+        }
+    },
+
+    saveBaseCurrency: function() {
+        const val = document.getElementById('admin-base-currency').value;
+        if (!val) return;
+        CONFIG.baseCurrency = val;
+        localStorage.setItem('baseCurrency', val);
+        this.invalidateStatsCache();
+        UI.showMessage(`Reporting currency set to ${val}`, 'success');
+    },
+
+    clearPriceCache: function() {
+        if (typeof Prices !== 'undefined') Prices.clearCache();
+        localStorage.removeItem('av_calls');
+        this.invalidateStatsCache();
+        UI.showMessage('Price cache cleared', 'success');
+        this.updateAdminView();
+    },
+
+    exportDatabaseJSON: function() {
+        const data = Database.getData();
+        const json = JSON.stringify(data, null, 2);
+        const blob = new Blob([json], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `stocktracker-backup-${new Date().toISOString().slice(0, 10)}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+    },
+
+    clearAllData: async function() {
+        const first = confirm('⚠️ This will permanently delete ALL transactions, accounts, and settings.\n\nThis cannot be undone.');
+        if (!first) return;
+        const second = confirm('Second confirmation: delete everything and start fresh?');
+        if (!second) return;
+
+        UI.showLoading('Clearing all data...');
+        try {
+            Database.data = { transactions: [], accounts: {}, settings: {}, processedFiles: [] };
+            await Database.saveToDrive();
+            this.invalidateStatsCache();
+            UI.hideLoading();
+            UI.showMessage('All data cleared', 'success');
+            this.switchView('overview');
+        } catch (error) {
+            UI.hideLoading();
+            UI.showMessage('Error clearing data: ' + error.message, 'error');
+        }
+    },
+
+    exportTransactionsCSV: function() {
+        const txns = this.getFilteredTransactions();
+        const data = Database.getData();
+        const accounts = data.accounts || {};
+
+        const headers = ['Date','Symbol','Exchange','Type','Qty','Price','Currency','Fees','Total','Account','Broker'];
+        const rows = txns.map(t => {
+            const acc = t.accountId ? accounts[t.accountId] : null;
+            const row = [
+                t.date, t.symbol, t.exchange || '', t.type, t.quantity,
+                t.price, t.currency, t.fees || 0, t.total,
+                acc ? acc.name : (t.accountId || ''), t.broker || ''
+            ];
+            // Wrap fields that might contain commas in quotes
+            return row.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',');
+        });
+
+        const csv = [headers.join(','), ...rows].join('\n');
+        const blob = new Blob([csv], { type: 'text/csv' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `transactions-${new Date().toISOString().slice(0, 10)}.csv`;
+        a.click();
+        URL.revokeObjectURL(url);
+    },
+
     /**
      * Set up sync buttons in Sync view
      */
@@ -1102,7 +1270,8 @@ const UI = {
      * Clear all filters for a view
      */
      clearFilters: function(viewName) {
-        this.activeFilters[viewName] = { accounts: [], holders: [] };
+        this.activeFilters.accounts = [];
+        this.activeFilters.holders = [];
         
         const accountSelect = document.getElementById(`${viewName}-account-select`);
         const holderSelect = document.getElementById(`${viewName}-holder-select`);
@@ -1120,29 +1289,28 @@ const UI = {
     /**
      * Get filtered transactions based on active filters
      */
-     getFilteredTransactions: function(viewName) {
+     getFilteredTransactions: function() {
         if (typeof Database === 'undefined') return [];
-        
+
         const data = Database.getData();
         if (!data || !data.transactions) return [];
-        
+
         let filtered = data.transactions;
-        const filters = this.activeFilters[viewName];
-        
+
         // Filter by accounts
-        if (filters.accounts.length > 0) {
-            filtered = filtered.filter(t => filters.accounts.includes(t.accountId));
+        if (this.activeFilters.accounts.length > 0) {
+            filtered = filtered.filter(t => this.activeFilters.accounts.includes(t.accountId));
         }
-        
+
         // Filter by holders
-        if (filters.holders.length > 0) {
+        if (this.activeFilters.holders.length > 0) {
             filtered = filtered.filter(t => {
                 const account = data.accounts[t.accountId];
                 if (!account || !account.holders) return false;
-                return account.holders.some(h => filters.holders.includes(h));
+                return account.holders.some(h => this.activeFilters.holders.includes(h));
             });
         }
-        
+
         return filtered;
     },
     
@@ -1187,11 +1355,11 @@ const UI = {
         const modal = document.getElementById('favorite-modal');
         const summaryEl = document.getElementById('favorite-summary-content');
         
-        const filters = this.activeFilters[viewName];
+        const filters = this.activeFilters;
         const data = Database.getData();
-        
+
         let summary = '';
-        
+
         if (filters.accounts.length > 0) {
             summary += '<div class="filter-summary-item"><strong>Accounts:</strong> ';
             filters.accounts.forEach(accId => {
@@ -1202,7 +1370,7 @@ const UI = {
             });
             summary += '</div>';
         }
-        
+
         if (filters.holders.length > 0) {
             summary += '<div class="filter-summary-item"><strong>Holders:</strong> ';
             filters.holders.forEach(holder => {
@@ -1505,6 +1673,7 @@ const UI = {
             UI.hideLoading();
             this.hideEditTransactionModal();
             UI.showMessage('Transaction updated', 'success');
+            this.invalidateStatsCache();
             this.updateTransactions();
             this.updateOverview();
             this.updateHoldings();
@@ -1527,6 +1696,7 @@ const UI = {
             UI.hideLoading();
             this.hideEditTransactionModal();
             UI.showMessage('Transaction deleted', 'success');
+            this.invalidateStatsCache();
             this.updateTransactions();
             this.updateOverview();
             this.updateHoldings();
@@ -1550,10 +1720,10 @@ const UI = {
         
         try {
             await Database.deleteTransaction(transactionId);
-            
+
             UI.hideLoading();
             UI.showMessage('Transaction deleted successfully', 'success');
-            
+            this.invalidateStatsCache();
             this.updateTransactions();
             this.updateOverview();
             this.updateHoldings();
@@ -1624,7 +1794,10 @@ const UI = {
             
             // Update cache info display
             this.updatePriceCacheInfo();
-            
+
+            // Invalidate stats cache so views recalculate with fresh prices
+            this.invalidateStatsCache();
+
             // Refresh views
             this.updateOverview();
             this.updateHoldings();
