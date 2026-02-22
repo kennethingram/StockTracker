@@ -42,8 +42,10 @@ const CONFIG = {
     
     // Google Drive API scopes (permissions we need)
     driveScopes: [
-        'https://www.googleapis.com/auth/drive.file', // Access files created by this app
-        'https://www.googleapis.com/auth/drive.readonly' // Read files in Drive
+        'https://www.googleapis.com/auth/drive.file',    // Access files created by this app
+        'https://www.googleapis.com/auth/drive.readonly', // Read files in Drive
+        'email',    // User's email address (for profile display)
+        'profile'   // User's name and photo (for initials avatar)
     ].join(' '),
     
     // ===================================

@@ -117,12 +117,18 @@ const Auth = {
      * Get user's email and name from Google
      */
     getUserInfo: async function() {
+        // Apply cached profile immediately (avoids flash of "?" on returning visits)
+        this._applyStoredProfile();
+
         try {
             const response = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
-                headers: {
-                    'Authorization': `Bearer ${this.accessToken}`
-                }
+                headers: { 'Authorization': `Bearer ${this.accessToken}` }
             });
+
+            if (!response.ok) {
+                console.warn('getUserInfo: HTTP', response.status, '— using cached profile if available');
+                return;
+            }
 
             const data = await response.json();
             this.userEmail = data.email;
@@ -135,36 +141,38 @@ const Auth = {
             } else if (data.given_name) {
                 initials = data.given_name.slice(0, 2).toUpperCase();
             } else if (data.email) {
-                const prefix = data.email.split('@')[0];
-                initials = prefix.slice(0, 2).toUpperCase();
+                initials = data.email.split('@')[0].slice(0, 2).toUpperCase();
             }
 
-            // Profile avatar button initials (navbar)
-            const profileInitialsEl = document.getElementById('profile-initials');
-            if (profileInitialsEl) profileInitialsEl.textContent = initials;
+            // Persist so returning users see initials immediately next session
+            if (initials !== '?') {
+                localStorage.setItem('profile_initials', initials);
+                localStorage.setItem('profile_name', displayName || data.email || '');
+                localStorage.setItem('profile_email', data.email || '');
+            }
 
-            // Dropdown header
-            const dropdownInitialsEl = document.getElementById('profile-dropdown-initials');
-            if (dropdownInitialsEl) dropdownInitialsEl.textContent = initials;
-
-            const dropdownNameEl = document.getElementById('profile-dropdown-name');
-            if (dropdownNameEl) dropdownNameEl.textContent = displayName || this.userEmail;
-
-            const dropdownEmailEl = document.getElementById('profile-dropdown-email');
-            if (dropdownEmailEl) dropdownEmailEl.textContent = this.userEmail;
-
-            // Mobile sidebar footer email
-            const sidebarEmailEl = document.getElementById('sidebar-user-email');
-            if (sidebarEmailEl) sidebarEmailEl.textContent = this.userEmail;
-
-            // Legacy email span (hidden on mobile, kept for compatibility)
-            const userEmailEl = document.getElementById('user-email');
-            if (userEmailEl) userEmailEl.textContent = this.userEmail;
-
-            console.log('User info loaded:', this.userEmail, '(initials:', initials + ')');
+            this._applyProfile(initials, displayName || data.email, data.email);
+            console.log('User info loaded:', data.email, '(initials:', initials + ')');
         } catch (error) {
             console.error('Error getting user info:', error);
         }
+    },
+
+    _applyStoredProfile: function() {
+        const initials = localStorage.getItem('profile_initials');
+        const name = localStorage.getItem('profile_name');
+        const email = localStorage.getItem('profile_email');
+        if (initials) this._applyProfile(initials, name, email);
+    },
+
+    _applyProfile: function(initials, displayName, email) {
+        const set = (id, val) => { const el = document.getElementById(id); if (el && val) el.textContent = val; };
+        set('profile-initials', initials);
+        set('profile-dropdown-initials', initials);
+        set('profile-dropdown-name', displayName);
+        set('profile-dropdown-email', email);
+        set('sidebar-user-email', email);
+        set('user-email', email);
     },
     
     /**
@@ -180,6 +188,9 @@ const Auth = {
         
         // Remove from browser storage
         localStorage.removeItem('google_access_token');
+        localStorage.removeItem('profile_initials');
+        localStorage.removeItem('profile_name');
+        localStorage.removeItem('profile_email');
         
         // Show login screen
         this.showLoginScreen();
