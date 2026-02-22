@@ -493,8 +493,9 @@ const UI = {
                 ? this.formatCurrency(perf.currentValueInBase, baseCurrency)
                 : this.formatCurrency(holding.costBasisConverted !== undefined ? holding.costBasisConverted : holding.totalCostInBase, baseCurrency);
 
+            const costBasis = holding.costBasisConverted ?? holding.totalCostInBase;
             const acb = holding.quantity > 0
-                ? this.formatCurrency(holding.totalCostInBase / holding.quantity, baseCurrency)
+                ? this.formatCurrency(costBasis / holding.quantity, baseCurrency)
                 : '—';
 
             html += `
@@ -646,8 +647,9 @@ const UI = {
                   (perf.priceStale ? `<span class="price-stale-label">Last close</span>` : '')
                 : '<span style="color:var(--text-muted)">—</span>';
 
+            const costBasis = holding.costBasisConverted ?? holding.totalCostInBase;
             const acb = holding.quantity > 0
-                ? this.formatCurrency(holding.totalCostInBase / holding.quantity, baseCurrency)
+                ? this.formatCurrency(costBasis / holding.quantity, baseCurrency)
                 : '—';
 
             html += `
@@ -679,7 +681,7 @@ const UI = {
                     <div class="holding-qty">${holding.quantity.toLocaleString()}</div>
                     <div class="holding-price">${priceDisplay}</div>
                     <div class="holding-acb">${acb}</div>
-                    <div class="holding-cost">${this.formatCurrency(holding.totalCostInBase, baseCurrency)}</div>
+                    <div class="holding-cost">${this.formatCurrency(costBasis, baseCurrency)}</div>
                 </div>
             `;
         });
