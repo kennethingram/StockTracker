@@ -1,5 +1,5 @@
 # API Keys and Secrets - NEVER commit these
-config.js
+config.local.js
 
 # Environment variables
 .env

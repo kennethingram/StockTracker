@@ -11,10 +11,12 @@ AI-powered portfolio tracker with automated contract note processing. Built for 
 - 🤖 **AI-Powered PDF Parsing** - Google Gemini Vision OCR for scanned contract notes
 - 📁 **Google Drive Storage** - Your data stays in YOUR Drive
 - 🔐 **OAuth Authentication** - Secure Google sign-in
-- 💱 **Multi-Currency Support** - Track stocks in USD, CAD, GBP, EUR, etc.
-- 📈 **Portfolio Analytics** - Holdings, P/L, ARR calculations
-- 💰 **Real-Time Stock Prices** - Live prices from Twelve Data API
+- 💱 **Multi-Currency Support** - Track stocks in USD, CAD, GBP, EUR, AUD, CHF (6 currencies)
+- 💹 **Live FX Rates** - True historical & current rates from frankfurter.app (European Central Bank)
+- 📈 **Portfolio Analytics** - Holdings, P/L, ARR calculations with multi-currency support
+- 💰 **Real-Time Stock Prices** - Hybrid API (Finnhub for US/CA, Alpha Vantage for UK)
 - 🌍 **Exchange Support** - LSE, TSX, NYSE, NASDAQ, and more
+- 🔄 **Currency Switcher** - View Overview in any supported currency
 - 👤 **Multi-Account Holder Filtering** - Joint accounts, individual views
 - ✅ **Human-in-the-Loop Validation** - Review AI extractions before saving
 - 🗑️ **Transaction Management** - Delete transactions with confirmation
@@ -23,10 +25,10 @@ AI-powered portfolio tracker with automated contract note processing. Built for 
 
 ### Planned (See [BACKLOG.md](BACKLOG.md))
 - 🔄 Batch PDF processing
-- 💹 Live FX rates
-- 📉 Performance charts
 - ✏️ Transaction editing
+- 📉 Performance charts
 - 🎨 UI redesign
+- 🔧 Backend proxy for hosting (no API keys in code)
 
 ## 🚀 Quick Start
 
@@ -39,16 +41,21 @@ AI-powered portfolio tracker with automated contract note processing. Built for 
 5. **Process them** in the Sync tab
 6. **View your portfolio** in Overview/Holdings/Transactions
 
+**⚠️ CURRENT LIMITATION:** App requires local `config.js` file with API keys. See setup instructions below. Public hosting solution coming soon.
+
 ---
 
 ## 🔐 Setup Instructions (For Developers)
 
 ### Prerequisites
 
-You'll need three API keys (all free):
+You'll need API keys (all free):
 1. **Google OAuth Client ID** - For Google sign-in
 2. **Google Gemini API Key** - For AI PDF parsing
-3. **Twelve Data API Key** - For real-time stock prices
+3. **Finnhub API Key** - For US/Canadian stock prices
+4. **Alpha Vantage API Key** - For UK stock prices
+
+**Note:** FX rates are fetched automatically from frankfurter.app (European Central Bank) - no API key needed!
 
 ---
 
@@ -96,18 +103,23 @@ cp config.example.js config.js
    - Add: `http://127.0.0.1:5500/*`
    - Click **"Save"**
 
-#### **Twelve Data API Key:**
-1. Go to [Twelve Data](https://twelvedata.com/pricing)
-2. Sign up for **Free plan** (800 API calls/day)
-3. Go to [API Keys](https://twelvedata.com/account/api-keys)
-4. Copy your API key
+#### **Finnhub API Key:**
+1. Go to [Finnhub](https://finnhub.io/register)
+2. Sign up for **Free plan** (60 API calls/minute)
+3. Copy your API key from dashboard
+
+#### **Alpha Vantage API Key:**
+1. Go to [Alpha Vantage](https://www.alphavantage.co/support/#api-key)
+2. Get free API key (25 calls/day for UK stocks)
+3. Copy the key
 
 **2C: Edit `config.js` and add your keys:**
 ```javascript
 const CONFIG = {
     googleClientId: 'YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com',
     geminiApiKey: 'AIzaSy_YOUR_GEMINI_KEY',
-    twelveDataApiKey: 'abc123_YOUR_TWELVE_DATA_KEY',
+    finnhubApiKey: 'your_finnhub_key',
+    alphaVantageApiKey: 'YOUR_ALPHA_VANTAGE_KEY',
     // ... rest of config
 };
 ```
@@ -127,32 +139,7 @@ const CONFIG = {
 
 ---
 
-### Step 4: Deploy to GitHub Pages
-```bash
-# Make sure config.js is NOT staged for commit
-git status
-
-# It should show:
-# Untracked files:
-#   config.js  (this is correct - it's ignored)
-
-# Deploy
-git add .
-git commit -m "Initial setup"
-git push origin main
-```
-
-**Enable GitHub Pages:**
-1. Go to your repo **Settings** → **Pages**
-2. Source: **Deploy from branch**
-3. Branch: **main** → **/ (root)**
-4. Click **Save**
-5. Wait 2-3 minutes
-6. Visit: `https://yourusername.github.io/StockTracker`
-
----
-
-### Step 5: Test Locally (Optional)
+### Step 4: Test Locally
 
 **Using Live Server (VS Code):**
 1. Install **Live Server** extension
@@ -168,37 +155,65 @@ python3 -m http.server 5500
 
 ---
 
+### Step 5: Deploy to GitHub Pages (Optional)
+
+**⚠️ WARNING:** Currently, deploying to GitHub Pages requires API keys in `config.js`, which cannot be safely committed. A backend proxy solution is planned. For now, use local development only.
+```bash
+# DON'T DO THIS YET - API keys would be exposed!
+# git add .
+# git commit -m "Initial setup"
+# git push origin main
+```
+
+**Coming Soon:** Cloudflare Workers proxy to enable safe public hosting.
+
+---
+
 ## 📖 How It Works
 
 ### Architecture
 ```
-GitHub Pages (Static Host)
+Browser (Local Development)
     ↓
 JavaScript SPA (Client-Side Only)
     ↓
-Google Drive (Database) + Gemini (AI Parser) + OAuth (Auth) + Twelve Data (Prices)
+APIs: Drive + Gemini + Finnhub + Alpha Vantage + frankfurter.app (FX)
 ```
 
-**No backend servers. No databases. Just your browser + Google APIs.**
+**No backend servers. No databases. Just your browser + APIs.**
+
+### Multi-Currency System
+1. **Transaction Processing:** When PDF processed, fetch ALL FX rates for that date
+2. **Historical Rates:** Cost basis calculated using transaction date FX rates (never changes)
+3. **Live Rates:** Current portfolio value uses today's FX rates (updates hourly)
+4. **Currency Switching:** Overview tab can display in any of 6 currencies
+5. **Data Source:** frankfurter.app (European Central Bank) - free, accurate, historical data
+
+**Supported Currencies:** CAD, USD, GBP, EUR, AUD, CHF
 
 ### PDF Processing Flow
 1. Upload PDF to Google Drive folder
 2. App detects new file
 3. Extract text (PDF.js) OR OCR image (Gemini Vision)
 4. Parse with Gemini AI → Extract transactions
-5. **You review** in validation table (with exchange selection)
-6. Accept/reject/edit each transaction
-7. Save to database (your Drive)
+5. **Fetch FX rates** for transaction date (ALL currencies stored)
+6. **You review** in validation table (with exchange selection)
+7. Accept/reject/edit each transaction
+8. Save to database with historical FX rate
 
 ### Stock Price Updates
-1. Click **"🔄 Refresh Prices"** in Overview tab
-2. Fetches live prices from Twelve Data API
-3. Prices cached for 15 minutes
-4. Shows real P/L, ARR, and portfolio value
+1. Click **"🔄 Refresh Prices & FX"** in Overview tab
+2. Fetches live prices:
+   - **Finnhub** for US/Canadian stocks
+   - **Alpha Vantage** for UK stocks (LSE)
+3. Fetches live FX rates from frankfurter.app
+4. Prices cached for 15 minutes, FX cached for 1 hour
+5. Shows real P/L, ARR, and portfolio value
 
 ### Data Storage
 - **Location:** `/StockTracker/stock-tracker-database.json` in your Google Drive
-- **Format:** JSON
+- **Format:** JSON with FX rates embedded
+- **FX Data:** Historical rates stored per transaction date
 - **Backup:** Automatically synced by Google Drive
 - **Access:** Only you (via OAuth)
 
@@ -214,11 +229,13 @@ Google Drive (Database) + Gemini (AI Parser) + OAuth (Auth) + Twelve Data (Price
 ✅ HTTPS encryption (automatic on GitHub Pages)  
 ✅ No third-party tracking or analytics  
 ✅ Client-side only (no servers to hack)  
+✅ FX rates from trusted source (European Central Bank)
 
 ### What You Should Know
 ⚠️ API keys stored in local `config.js` (not committed to Git)  
 ⚠️ Browser-based (clear cache = clear session)  
-⚠️ Free tier API limits (800 price calls/day, 25 Gemini calls/day)  
+⚠️ Free tier API limits (60 Finnhub/min, 25 Alpha Vantage/day, unlimited FX)  
+⚠️ Cannot currently deploy safely to GitHub Pages (backend proxy needed)
 
 ### Best Practices
 - Never commit `config.js` with real API keys
@@ -228,7 +245,7 @@ Google Drive (Database) + Gemini (AI Parser) + OAuth (Auth) + Twelve Data (Price
 - Regular Drive backups
 
 ### If API Keys Leak
-1. **Immediately delete** the leaked key in Google AI Studio
+1. **Immediately delete** the leaked key in respective service
 2. **Create a new key** and restrict it
 3. **Update local `config.js`** (don't commit)
 4. **Remove from Git history:**
@@ -248,9 +265,11 @@ Google Drive (Database) + Gemini (AI Parser) + OAuth (Auth) + Twelve Data (Price
 - Google Drive API (storage)
 - Google Gemini API (AI parsing)
 - Google OAuth 2.0 (authentication)
-- Twelve Data API (stock prices)
+- Finnhub API (US/CA stock prices)
+- Alpha Vantage API (UK stock prices)
+- frankfurter.app (FX rates - European Central Bank)
 
-**Hosting:** GitHub Pages  
+**Hosting:** GitHub Pages (local development for now)  
 **Storage:** JSON in Google Drive  
 
 **No frameworks. No build tools. No backend.**
@@ -264,16 +283,18 @@ Google Drive (Database) + Gemini (AI Parser) + OAuth (Auth) + Twelve Data (Price
 ├── config.js               # API keys & settings (NOT in Git - see config.example.js)
 ├── config.example.js       # Template for config.js
 ├── .gitignore              # Prevents committing secrets
-├── styles.css              # Global styles
+├── css/
+│   └── styles.css          # Global styles
 ├── /modules                # Core logic
 │   ├── auth.js            # OAuth
 │   ├── database.js        # Data management
 │   ├── drive.js           # Drive integration
-│   ├── parser.js          # AI PDF parsing
-│   ├── portfolio.js       # Analytics
-│   ├── prices.js          # Stock price fetching
-│   ├── ui.js              # UI rendering
-│   └── currency.js        # FX rates (placeholder)
+│   ├── parser.js          # AI PDF parsing (with FX fetching)
+│   ├── portfolio.js       # Analytics (multi-currency)
+│   ├── prices.js          # Stock price fetching (Finnhub + Alpha Vantage)
+│   ├── fx.js              # FX rate management (frankfurter.app)
+│   ├── currency.js        # Currency utilities
+│   └── ui.js              # UI rendering
 ├── README.md              # This file
 ├── ARCHITECTURE.md        # Technical details
 └── BACKLOG.md            # Feature roadmap
@@ -283,8 +304,10 @@ Google Drive (Database) + Gemini (AI Parser) + OAuth (Auth) + Twelve Data (Price
 
 ## 🐛 Known Issues
 
-- FX rates require manual entry (API integration coming)
+- **Cannot deploy to GitHub Pages** (API keys would be exposed - backend proxy solution needed)
+- FX rates: INR not supported by frankfurter.app (warning shown if attempted)
 - Batch processing not implemented
+- Transaction editing not implemented
 - Mobile UI needs polish
 - No offline support
 
@@ -294,19 +317,21 @@ See [BACKLOG.md](BACKLOG.md) for full list.
 
 ## 🗺️ Roadmap
 
-### v1.1 (Current)
-- [x] Real stock price API integration
+### v1.1 (Completed)
+- [x] Real stock price API integration (Finnhub + Alpha Vantage)
 - [x] Exchange support (LSE, TSX, NYSE, etc.)
+- [x] FX rate API integration (frankfurter.app)
+- [x] Multi-currency portfolio calculations
+- [x] Currency switcher in Overview
+
+### v1.2 (In Progress)
+- [ ] Backend proxy (Cloudflare Workers) for safe hosting
 - [ ] Batch PDF processing
-- [ ] FX rate API integration
-
-### v1.2
-- [ ] UI redesign (color scheme, layouts)
 - [ ] Transaction editing
-- [ ] Performance charts
+- [ ] UI redesign
 
-### v2.0
-- [ ] Advanced analytics
+### v2.0 (Planned)
+- [ ] Performance charts
 - [ ] Tax reporting
 - [ ] Mobile app (PWA)
 
@@ -335,7 +360,9 @@ MIT License - feel free to use, modify, and share.
 ## 🙏 Acknowledgments
 
 - **Google Gemini** - AI-powered OCR and parsing
-- **Twelve Data** - Real-time stock price API
+- **Finnhub** - Real-time US/Canadian stock prices
+- **Alpha Vantage** - UK stock prices (LSE)
+- **frankfurter.app** - European Central Bank FX rates (historical & current)
 - **PDF.js (Mozilla)** - Client-side PDF rendering
 - **Google Drive API** - Serverless database storage
 

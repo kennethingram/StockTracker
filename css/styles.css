@@ -378,7 +378,11 @@ button {
 }
 
 /* ===================================
+<<<<<<< Updated upstream
    Holdings Table — compact Yahoo Finance rows
+=======
+   Holdings Table â€” compact Yahoo Finance rows
+>>>>>>> Stashed changes
    =================================== */
 
 .holdings-table-wrap {
@@ -636,7 +640,11 @@ button {
 }
 
 #recent-transactions-list {
+<<<<<<< Updated upstream
   /* no extra padding — holding rows handle it */
+=======
+  /* no extra padding â€” holding rows handle it */
+>>>>>>> Stashed changes
 }
 
 /* ===================================
@@ -1342,4 +1350,8 @@ button {
 @media (max-width: 480px) {
   .stats-grid { grid-template-columns: 1fr; }
   .account-card-details { grid-template-columns: 1fr; }
+<<<<<<< Updated upstream
 }
+=======
+}
+>>>>>>> Stashed changes

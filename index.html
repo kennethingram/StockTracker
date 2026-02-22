@@ -396,6 +396,8 @@
 
     <!-- Load configuration first -->
     <script src="config.js"></script>
+    <!-- Load local dev keys if present (gitignored, silently skipped in production) -->
+    <script src="config.local.js" onerror="null"></script>
     
     <!-- Load all modules -->
     <script src="modules/auth.js"></script>

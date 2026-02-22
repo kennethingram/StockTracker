@@ -2,49 +2,65 @@
 
 Priority levels: 🔴 High | 🟡 Medium | 🟢 Low
 
+---
+
+## ✅ Completed Features
+
+### Multi-Currency FX System ✅
+**Status:** Complete (v1.1)  
+**Completed:** February 2026  
+
+**What was delivered:**
+- Live & historical FX rates from frankfurter.app (European Central Bank)
+- Support for 6 currencies: CAD, USD, GBP, EUR, AUD, CHF
+- Automatic FX rate fetching when processing transactions
+- Historical cost basis using transaction date FX rates
+- Currency switcher in Overview tab
+- Accurate P/L and ARR calculations across currencies
+- Holdings display with native price + converted values
+
+---
+
+### Real Stock Prices ✅
+**Status:** Complete (v1.0)  
+**Completed:** February 2026  
+
+**What was delivered:**
+- Hybrid API integration (Finnhub for US/CA, Alpha Vantage for UK)
+- Auto-refresh mechanism (manual button)
+- Price caching (15 minutes)
+- Exchange support (LSE, TSX, NYSE, NASDAQ)
+- Last updated timestamps
+- Graceful error handling
+
+---
+
 ## 🔴 High Priority
 
-### Real Stock Prices
+### Backend Proxy for Hosting
 **Status:** Not started  
 **Effort:** 2-3 hours  
-**Dependencies:** API selection (Twelve Data recommended)  
-**Value:** Makes portfolio actually useful for daily tracking
+**Dependencies:** Cloudflare account  
+**Value:** Enable safe public hosting without exposing API keys
+
+**Problem:**
+- Cannot deploy to GitHub Pages (API keys would be exposed)
+- App only works locally with `config.js`
+- Can't share working demo with friends
+
+**Solution:**
+- Cloudflare Workers proxy for Gemini API
+- API keys stored in environment variables
+- Frontend calls worker, worker calls Google
+- Free tier: 100,000 requests/day
 
 **Scope:**
-- Integrate free stock price API
-- Auto-refresh mechanism (manual + 15min intervals)
-- Cache prices (reduce API calls)
-- Show last updated timestamp
-- Handle API errors gracefully
-
----
-
-### Batch PDF Processing
-**Status:** UI placeholder exists  
-**Effort:** 1-2 hours  
-**Dependencies:** None  
-**Value:** Process backlog of PDFs quickly
-
-**Scope:**
-- Functional "Process All" button
-- Queue system for multiple files
-- Progress indicator (X of Y processed)
-- Error handling (continue on failure)
-- Summary report after completion
-
----
-
-### FX Rate API Integration
-**Status:** ✅ Complete
-**Effort:** 2 hours
-**Dependencies:** API selection (exchangerate-api.io recommended)
-**Value:** Accurate multi-currency portfolio valuations
-
-**Scope:**
-- Auto-populate FX rates when adding transactions
-- Historical rates for accurate ARR
-- Cache daily rates
-- Fallback to manual entry if API fails
+- Create Cloudflare Worker
+- Proxy Gemini API requests
+- Update frontend to use worker URL
+- Remove API keys from config.js
+- Deploy to GitHub Pages
+- Add rate limiting (optional)
 
 ---
 
@@ -66,24 +82,10 @@ Priority levels: 🔴 High | 🟡 Medium | 🟢 Low
 
 ---
 
-### Transaction Editing
-**Status:** Delete only  
-**Effort:** 2 hours  
-**Dependencies:** None  
-**Value:** Fix mistakes without re-processing
-
-**Scope:**
-- Edit existing transactions (all fields)
-- Bulk edit (account, FX rates)
-- Duplicate detection
-- Edit history log
-
----
-
 ### Portfolio Charts & Analytics
 **Status:** Basic stats only  
 **Effort:** 3-4 hours  
-**Dependencies:** Real prices helpful  
+**Dependencies:** Real prices (done)  
 **Value:** Visual insights
 
 **Scope:**
@@ -92,6 +94,7 @@ Priority levels: 🔴 High | 🟡 Medium | 🟢 Low
 - Asset allocation by currency
 - P/L breakdown by holding
 - Export charts as images
+- Chart.js or similar library
 
 ---
 
@@ -103,10 +106,11 @@ Priority levels: 🔴 High | 🟡 Medium | 🟢 Low
 
 **Scope:**
 - Change base currency
-- Update API keys
+- Theme preferences (dark/light mode)
 - Clear all data (with confirmation)
-- Export/import database
-- Theme preferences
+- Export/import database JSON
+- View API usage stats
+- Manage favorites
 
 ---
 
@@ -118,9 +122,10 @@ Priority levels: 🔴 High | 🟡 Medium | 🟢 Low
 
 **Scope:**
 - Export to CSV (transactions, holdings)
-- Export to Excel
+- Export to Excel (multi-sheet)
 - Download database JSON backup
-- Email reports
+- Generate PDF reports
+- Email reports (optional)
 
 ---
 
@@ -135,6 +140,7 @@ Priority levels: 🔴 High | 🟡 Medium | 🟢 Low
 - Unmark as processed (re-process)
 - Link transactions to source file
 - Delete processing history
+- Search/filter processed files
 
 ---
 
@@ -150,22 +156,63 @@ Priority levels: 🔴 High | 🟡 Medium | 🟢 Low
 - Validate account matching
 - Warn on manual vs AI-parsed
 - Required field enforcement
+- Data consistency checks
 
 ---
 
 ## 🟢 Low Priority
 
+### Batch PDF Processing
+**Status:** UI placeholder exists  
+**Effort:** 2-3 hours  
+**Dependencies:** None  
+**Value:** Process backlog of PDFs quickly
+
+**Scope:**
+- Functional "Process All" button
+- Queue system for multiple files
+- Progress indicator (X of Y processed)
+- Error handling (continue on failure)
+- Summary report after completion
+- Pause/resume capability
+
+---
+
+### Transaction Editing
+**Status:** Delete only  
+**Effort:** 3-4 hours  
+**Dependencies:** None  
+**Value:** Fix mistakes without re-processing
+
+**Scope:**
+- Edit existing transactions (all fields)
+- **Secondary FX rate menu** - Edit historical FX rate for specific transaction
+- Account reassignment
+- Bulk edit multiple transactions
+- Duplicate detection during edit
+- Edit history log/audit trail
+- Validation on save
+
+**UI Flow:**
+1. Click "Edit" on transaction
+2. Modal opens with transaction fields
+3. "Advanced" section with FX rate override
+4. Save triggers recalculation of cost basis
+
+---
+
 ### Performance Tracking
 **Status:** ARR calculated  
 **Effort:** 2-3 hours  
-**Dependencies:** Real prices  
+**Dependencies:** Real prices (done)  
 **Value:** Long-term insights
 
 **Scope:**
-- Daily/weekly/monthly charts
+- Daily/weekly/monthly performance charts
 - Benchmark comparison (S&P 500, TSX)
 - Dividend tracking
 - Total return vs price return
+- Time-weighted vs money-weighted returns
 
 ---
 
@@ -180,6 +227,7 @@ Priority levels: 🔴 High | 🟡 Medium | 🟢 Low
 - Filter by broker, account type
 - Complex AND/OR filters
 - Save custom searches
+- Quick filters (this month, this year, etc.)
 
 ---
 
@@ -194,6 +242,7 @@ Priority levels: 🔴 High | 🟡 Medium | 🟢 Low
 - Quick add transaction (Ctrl+N)
 - Search (Ctrl+/)
 - Esc to close modals
+- Arrow keys for table navigation
 
 ---
 
@@ -208,19 +257,39 @@ Priority levels: 🔴 High | 🟡 Medium | 🟢 Low
 - Cache portfolio data
 - Queue actions when offline
 - Sync when back online
+- Install as app prompt
 
 ---
 
 ### Multi-Currency Dashboard View
-**Status:** Converts to CAD only  
-**Effort:** 2 hours  
-**Dependencies:** None  
+**Status:** Converts to selected currency  
+**Effort:** 1-2 hours  
+**Dependencies:** FX system (done)  
 **Value:** Currency exposure insights
 
 **Scope:**
-- Show holdings in original + base currency
-- Currency exposure chart
+- Show holdings in original + multiple currencies
+- Currency exposure breakdown chart
+- FX gain/loss tracking
 - Hedging recommendations
+- Currency risk analysis
+
+---
+
+### INR Currency Support
+**Status:** Not supported  
+**Effort:** 2-3 hours  
+**Dependencies:** New FX API (frankfurter doesn't have INR)  
+**Value:** Support Indian market transactions
+
+**Options:**
+- Add secondary FX API (exchangerate-api.com) for INR only
+- Manual INR rate entry with UI support
+- Use alternate free API with INR support
+
+**Current Workaround:**
+- UI shows warning when INR detected
+- User must enter manual FX rate
 
 ---
 
@@ -233,6 +302,7 @@ Priority levels: 🔴 High | 🟡 Medium | 🟢 Low
 - Add JSDoc comments
 - Refactor duplicate code
 - Consistent naming conventions
+- Split large functions
 
 ---
 
@@ -243,49 +313,78 @@ Priority levels: 🔴 High | 🟡 Medium | 🟢 Low
 - Subresource Integrity for CDNs
 - Session timeout
 - Rate limiting improvements
+- Input sanitization
 
 ---
 
 ### Testing
 **Effort:** 3-4 hours
 
-- Unit tests for calculations
+- Unit tests for calculations (P/L, ARR, FX conversions)
 - Edge case testing
 - Browser compatibility
 - Mobile device testing
+- Automated regression tests
+
+---
+
+### Documentation
+**Effort:** 2 hours
+
+- API documentation
+- Code architecture diagrams
+- User guide (screenshots)
+- Video tutorial
+- FAQ page
 
 ---
 
 ## 💡 Future Ideas (Not Prioritized)
 
-- AI-powered portfolio insights
+- AI-powered portfolio insights ("You should consider selling AAPL based on...")
 - Tax-loss harvesting suggestions
-- Broker API integrations
-- Voice commands
-- Social features (compare performance)
-- Custom ML model for PDF parsing
-- Notifications/alerts
+- Broker API integrations (auto-import transactions)
+- Voice commands ("Alexa, what's my portfolio worth?")
+- Social features (compare performance with friends)
+- Custom ML model for PDF parsing (reduce Gemini dependency)
+- Notifications/alerts (price targets, rebalancing)
+- Watchlist feature
+- Recurring investment tracking
+- Portfolio rebalancing recommendations
 
 ---
 
 ## Timeline Estimate
 
-**Next 2 weeks:**
-- Real stock prices
-- Batch processing
-- FX rates
+**Immediate (Next Week):**
+- Backend proxy setup (HIGH - enables public hosting)
+- Update documentation
 
-**Next month:**
+**Next 2 Weeks:**
 - UI redesign
-- Transaction editing
-- Charts
-
-**Next quarter:**
 - Settings page
 - Data export
+
+**Next Month:**
+- Charts & analytics
 - File management
-- Validation improvements
+- Data validation
+
+**Next Quarter:**
+- Batch processing
+- Transaction editing (with FX menu)
+- Advanced filtering
+- Performance tracking
 
 ---
 
-**Last Updated:** February 15, 2026
+## Notes
+
+- **INR Support:** Deferred until user demand increases (frankfurter.app doesn't support it)
+- **Backend Proxy:** Critical for enabling public demo and safe hosting
+- **Transaction Editing:** Low priority but important for data quality
+- **Batch Processing:** Nice-to-have, not essential for daily use
+
+---
+
+**Last Updated:** February 18, 2026
