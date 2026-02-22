@@ -416,7 +416,7 @@ button {
   color: var(--text-primary);
   font-size: 1.3em;
   font-weight: 700;
-  margin-bottom: 18px;
+  margin-bottom: 20px;
   letter-spacing: -0.01em;
 }
 
@@ -1479,24 +1479,21 @@ button {
     display: none;
   }
 
+  /* Hide desktop column headers on mobile */
+  .holdings-col-header,
+  .holdings-col-header-detail { display: none; }
+
+  /* Reflow grid rows into flex cards */
   .holding-row,
   .holding-row-detail {
     display: flex;
     flex-wrap: wrap;
-    gap: 4px 10px;
-    padding: 10px 12px;
+    gap: 0;
+    padding: 12px 14px;
     align-items: flex-start;
   }
 
-  /* Forces a line-break between row 1 (identity + pl) and row 2 (stats) */
-  .holding-row::after,
-  .holding-row-detail::after {
-    content: '';
-    flex: 1 1 100%;
-    order: 2;
-    height: 0;
-  }
-
+  /* Row 1 left: identity */
   .holding-row .holding-identity,
   .holding-row-detail .holding-identity {
     order: 1;
@@ -1504,23 +1501,51 @@ button {
     min-width: 0;
   }
 
-  .holding-row .holding-pl,
-  .holding-row-detail .holding-pl {
+  /* Row 1 right: P/L */
+  .holding-row .holding-pl-col,
+  .holding-row-detail .holding-pl-col {
     order: 1;
     flex: 0 0 auto;
     text-align: right;
   }
 
-  /* Show all previously-hidden data in a secondary info row */
-  .holding-row > *:not(.holding-identity):not(.holding-pl),
-  .holding-row-detail > *:not(.holding-identity):not(.holding-pl) {
-    order: 3;
-    display: flex;
-    flex: 0 0 auto;
-    align-items: center;
-    font-size: 0.78em;
-    color: var(--text-secondary);
+  /* Line break between row 1 and row 2 */
+  .holding-row::after,
+  .holding-row-detail::after {
+    content: '';
+    flex: 1 1 100%;
+    order: 2;
+    height: 6px;
   }
+
+  /* Row 2: secondary stats */
+  .holding-row .holding-arr-col,
+  .holding-row .holding-value,
+  .holding-row .holding-qty,
+  .holding-row .holding-price,
+  .holding-row .holding-acb,
+  .holding-row-detail .holding-arr-col,
+  .holding-row-detail .holding-value,
+  .holding-row-detail .holding-qty,
+  .holding-row-detail .holding-price,
+  .holding-row-detail .holding-acb,
+  .holding-row-detail .holding-cost {
+    order: 3;
+    flex: 0 0 auto;
+    font-size: 0.75em;
+    color: var(--text-secondary);
+    text-align: left;
+    margin-right: 10px;
+    margin-top: 2px;
+  }
+
+  /* Label prefixes for secondary stats */
+  .holding-arr-col::before  { content: "ARR ";  color: var(--text-muted); }
+  .holding-value::before    { content: "Val ";  color: var(--text-muted); }
+  .holding-qty::before      { content: "Qty ";  color: var(--text-muted); }
+  .holding-price::before    { content: "Px ";   color: var(--text-muted); }
+  .holding-acb::before      { content: "ACB ";  color: var(--text-muted); }
+  .holding-cost::before     { content: "Cost "; color: var(--text-muted); }
 
   .filters-bar { flex-direction: column; }
   .filter-section { flex-direction: column; width: 100%; }
@@ -1558,10 +1583,10 @@ button {
   display: none;
   background: none;
   border: none;
-  font-size: 1.4em;
+  font-size: 1.8em;
   cursor: pointer;
   color: var(--text-primary);
-  padding: 4px 8px;
+  padding: 2px 6px;
   border-radius: var(--radius);
   line-height: 1;
 }
@@ -1702,7 +1727,7 @@ button {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 0;
+  margin-bottom: 20px;
 }
 
 .view-header h1 {
@@ -1726,8 +1751,8 @@ button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 30px;
-  height: 30px;
+  width: 20px;
+  height: 20px;
   border-radius: 50%;
   background: transparent;
   border: 1.5px solid var(--border);
@@ -1736,6 +1761,7 @@ button {
   transition: background 0.15s, color 0.15s, border-color 0.15s;
   flex-shrink: 0;
   vertical-align: middle;
+  margin-left: 4px;
 }
 
 .icon-action-btn:hover {
@@ -1894,20 +1920,39 @@ select option {
 .holding-pl-col {
   font-weight: 700;
   font-size: 0.85em;
+  text-align: right;
 }
 
 .holding-arr-col {
   font-size: 0.82em;
   font-weight: 600;
+  text-align: right;
+}
+
+.holding-qty {
+  text-align: right;
+}
+
+.holding-price {
+  text-align: right;
 }
 
 .holding-acb {
   font-size: 0.85em;
   color: var(--text-secondary);
+  text-align: right;
 }
 
 .holding-cost {
   font-size: 0.85em;
   font-weight: 600;
+  text-align: right;
+}
+
+.filter-select-label {
+  font-size: 0.72em;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+  font-style: italic;
 }
 

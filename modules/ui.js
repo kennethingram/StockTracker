@@ -206,7 +206,10 @@ const UI = {
         // Populate account filters as multi-select dropdown
         const accountFilterEl = document.getElementById(`${viewName}-account-filters`);
         if (accountFilterEl) {
-            let html = '<select multiple class="multi-select-dropdown" id="' + viewName + '-account-select" onchange="UI.onMultiSelectChange(\'' + viewName + '\', \'accounts\')">';
+            const selCount = this.activeFilters.accounts.length;
+            const labelText = selCount === 0 ? 'All' : `${selCount} of ${accounts.length} selected`;
+            let html = `<div class="filter-select-label" id="${viewName}-account-label">${labelText}</div>`;
+            html += '<select multiple class="multi-select-dropdown" id="' + viewName + '-account-select" onchange="UI.onMultiSelectChange(\'' + viewName + '\', \'accounts\')">';
             accounts.forEach(acc => {
                 const selected = this.activeFilters.accounts.includes(acc.id) ? 'selected' : '';
                 const statusBadge = acc.isActive ? '🟢' : '⚫';
@@ -219,7 +222,10 @@ const UI = {
         // Populate holder filters as multi-select dropdown
         const holderFilterEl = document.getElementById(`${viewName}-holder-filters`);
         if (holderFilterEl) {
-            let html = '<select multiple class="multi-select-dropdown" id="' + viewName + '-holder-select" onchange="UI.onMultiSelectChange(\'' + viewName + '\', \'holders\')">';
+            const selCount = this.activeFilters.holders.length;
+            const labelText = selCount === 0 ? 'All' : `${selCount} of ${holders.length} selected`;
+            let html = `<div class="filter-select-label" id="${viewName}-holder-label">${labelText}</div>`;
+            html += '<select multiple class="multi-select-dropdown" id="' + viewName + '-holder-select" onchange="UI.onMultiSelectChange(\'' + viewName + '\', \'holders\')">';
             holders.forEach(holder => {
                 const selected = this.activeFilters.holders.includes(holder) ? 'selected' : '';
                 html += `<option value="${holder}" ${selected}>🟢 ${holder}</option>`;
@@ -233,19 +239,24 @@ const UI = {
      * Handle multi-select dropdown change
      */
      onMultiSelectChange: function(viewName, filterType) {
-        const selectId = `${viewName}-${filterType === 'accounts' ? 'account' : 'holder'}-select`;
-        const selectEl = document.getElementById(selectId);
-        
+        const filterKey = filterType === 'accounts' ? 'account' : 'holder';
+        const selectEl = document.getElementById(`${viewName}-${filterKey}-select`);
+
         if (!selectEl) return;
-        
+
         // Get selected values
         const selected = Array.from(selectEl.selectedOptions).map(option => option.value);
-        
+
         // Update shared active filters
         this.activeFilters[filterType] = selected;
-        
-        console.log('Filters updated:', this.activeFilters[viewName]);
-        
+
+        // Update the label
+        const labelEl = document.getElementById(`${viewName}-${filterKey}-label`);
+        if (labelEl) {
+            const total = selectEl.options.length;
+            labelEl.textContent = selected.length === 0 ? 'All' : `${selected.length} of ${total} selected`;
+        }
+
         // Reload the view with new filters
         this.loadViewData(viewName);
     },
@@ -557,11 +568,12 @@ const UI = {
     onEditAccountChange: function() {
         const accountSelect = document.getElementById('edit-txn-account');
         const brokerField = document.getElementById('edit-txn-broker');
-        if (!accountSelect || !brokerField) return;
+        const accNumField = document.getElementById('edit-txn-account-number');
+        if (!accountSelect) return;
         const data = Database.getData();
-        const accounts = data.accounts || {};
-        const acc = accounts[accountSelect.value];
-        brokerField.value = acc ? (acc.broker || '') : '';
+        const acc = (data.accounts || {})[accountSelect.value];
+        if (brokerField) brokerField.value = acc ? (acc.broker || '') : '';
+        if (accNumField) accNumField.value = acc ? (acc.accountNumber || '') : '';
     },
 
     /**
@@ -1721,10 +1733,12 @@ const UI = {
             accountSelect.appendChild(opt);
         });
 
-        // Auto-populate broker from selected account
+        // Auto-populate account number and broker from selected account
         const selectedAcc = txn.accountId ? accountsMap[txn.accountId] : null;
         const brokerField = document.getElementById('edit-txn-broker');
+        const accNumField = document.getElementById('edit-txn-account-number');
         if (brokerField) brokerField.value = selectedAcc ? (selectedAcc.broker || txn.broker || '') : (txn.broker || '');
+        if (accNumField) accNumField.value = selectedAcc ? (selectedAcc.accountNumber || '') : '';
 
         // Wire up the delete button (scoped to this transaction)
         const deleteBtn = document.getElementById('edit-txn-delete-btn');
