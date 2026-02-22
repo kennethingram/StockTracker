@@ -49,26 +49,26 @@ const Prices = {
         // Check failed fetch cache — skip API call if this symbol recently returned nothing
         const recentFailure = this.failedFetchCache[cacheKey];
         if (recentFailure && Date.now() - recentFailure < this.FAILED_FETCH_CACHE_DURATION) {
-            console.log('Skipping recent failed fetch for', symbol);
-            return null;
+            console.log('Skipping recent failed fetch for', symbol, '— trying last known price');
+            return this.getLastKnownPrice(cacheKey);
         }
 
-        // Check rate limits
+        // Check rate limits — still fall back to last known price if blocked
         if (useAlphaVantage && !this.checkAlphaVantageRateLimit()) {
-            console.warn('Alpha Vantage rate limit reached (25/day)');
-            return null;
+            console.warn('Alpha Vantage rate limit reached (25/day) — trying last known price');
+            return this.getLastKnownPrice(cacheKey);
         }
-        
+
         if (!useAlphaVantage && !this.checkFinnhubRateLimit()) {
-            console.warn('Finnhub rate limit reached (60/min)');
-            return null;
+            console.warn('Finnhub rate limit reached (60/min) — trying last known price');
+            return this.getLastKnownPrice(cacheKey);
         }
-        
+
         try {
             const priceData = useAlphaVantage
                 ? await this.fetchPriceFromAlphaVantage(formattedSymbol, exchange)
                 : await this.fetchPriceFromFinnhub(formattedSymbol, exchange);
-            
+
             if (priceData) {
                 this.priceCache[cacheKey] = {
                     ...priceData,
@@ -92,7 +92,7 @@ const Prices = {
 
         } catch (error) {
             console.error('Error fetching price for', symbol, ':', error);
-            return null;
+            return this.getLastKnownPrice(cacheKey);
         }
     },
 
