@@ -563,10 +563,11 @@ button {
   border-bottom: 1px solid var(--border);
 }
 
+/* Overview mini-table: Symbol | P/L | ARR | Value | QTY | Price | ACB */
 .holdings-col-header {
   display: grid;
-  grid-template-columns: 1fr 80px 110px 130px 150px;
-  gap: 12px;
+  grid-template-columns: 2fr 1fr 1fr 1fr 1fr 1fr 1fr;
+  gap: 8px;
   padding: 8px 18px;
   background: var(--bg-elevated);
   border-bottom: 1px solid var(--border);
@@ -581,7 +582,7 @@ button {
 
 .holding-row {
   display: grid;
-  grid-template-columns: 1fr 80px 110px 130px 150px;
+  grid-template-columns: 2fr 1fr 1fr 1fr 1fr 1fr 1fr;
   align-items: center;
   padding: 11px 18px;
   border-bottom: 1px solid var(--border);
@@ -690,14 +691,14 @@ button {
   overflow: hidden;
 }
 
-/* Detailed holding row for the holdings page (more columns) */
+/* Holdings detail: Symbol | P/L | ARR | Value | QTY | Price | ACB | Cost */
 .holding-row-detail {
   display: grid;
-  grid-template-columns: 1fr 80px 110px 120px 120px 150px;
+  grid-template-columns: 2fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr;
   align-items: center;
   padding: 11px 18px;
   border-bottom: 1px solid var(--border);
-  gap: 12px;
+  gap: 8px;
   transition: background 0.1s;
 }
 
@@ -706,8 +707,8 @@ button {
 
 .holdings-col-header-detail {
   display: grid;
-  grid-template-columns: 1fr 80px 110px 120px 120px 150px;
-  gap: 12px;
+  grid-template-columns: 2fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr;
+  gap: 8px;
   padding: 8px 18px;
   background: var(--bg-elevated);
   border-bottom: 1px solid var(--border);
@@ -1704,9 +1705,209 @@ button {
   margin-bottom: 0;
 }
 
-.view-header h1 { margin: 0; }
+.view-header h1 {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
 
 .btn-sm {
   padding: 6px 14px;
   font-size: 0.78em;
 }
+
+/* ===================================
+   Inline Icon Action Buttons
+   (refresh on Overview title, download on Transactions title)
+   =================================== */
+
+.icon-action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: transparent;
+  border: 1.5px solid var(--border);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  flex-shrink: 0;
+  vertical-align: middle;
+}
+
+.icon-action-btn:hover {
+  background: var(--accent-dim);
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+/* ===================================
+   Price status inline
+   =================================== */
+
+.price-status-inline {
+  display: block;
+  font-size: 0.77em;
+  color: var(--text-muted);
+  margin-bottom: 10px;
+  min-height: 1em;
+}
+
+/* ===================================
+   App-wide select / dropdown dark styling
+   =================================== */
+
+select {
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 8px 12px;
+  font-size: 0.85em;
+  font-family: inherit;
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  padding-right: 30px;
+  min-height: 36px;
+}
+
+select:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+select option {
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  padding: 6px 8px;
+}
+
+/* Currency filter in filters bar — styled to match filter height */
+.currency-filter-select {
+  width: 100%;
+  min-height: 36px;
+  padding: 7px 30px 7px 10px;
+}
+
+.filter-group-currency {
+  min-width: 200px;
+}
+
+/* Read-only input (e.g. auto-populated Broker in edit modal) */
+.input-readonly {
+  background: var(--bg-base) !important;
+  color: var(--text-secondary) !important;
+  border-color: var(--border) !important;
+  cursor: default !important;
+}
+
+/* ===================================
+   Transactions table: mobile column visibility
+   =================================== */
+
+/* Mobile only (hidden on desktop) */
+.col-mob-only { display: none; }
+
+@media (max-width: 768px) {
+  .col-mob-hide { display: none !important; }
+  .col-mob-only { display: table-cell !important; }
+}
+
+/* ===================================
+   Help Page
+   =================================== */
+
+.help-section {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 24px 28px;
+  margin-bottom: 20px;
+}
+
+.help-section h2 {
+  font-size: 1em;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0 0 16px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+.help-section h3 {
+  font-size: 0.85em;
+  font-weight: 600;
+  color: var(--accent);
+  margin: 18px 0 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.help-section p {
+  font-size: 0.875em;
+  color: var(--text-secondary);
+  line-height: 1.7;
+  margin: 0 0 10px;
+}
+
+.help-section ul,
+.help-section ol {
+  padding-left: 20px;
+  margin: 0 0 8px;
+}
+
+.help-section li {
+  font-size: 0.875em;
+  color: var(--text-secondary);
+  line-height: 1.7;
+  margin-bottom: 4px;
+}
+
+.help-section a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.help-section a:hover { text-decoration: underline; }
+
+.help-section code {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 1px 6px;
+  font-size: 0.83em;
+  color: var(--text-primary);
+  font-family: 'Courier New', monospace;
+}
+
+/* ===================================
+   ACB / P/L / ARR cells in holdings tables
+   =================================== */
+
+.holding-pl-col {
+  font-weight: 700;
+  font-size: 0.85em;
+}
+
+.holding-arr-col {
+  font-size: 0.82em;
+  font-weight: 600;
+}
+
+.holding-acb {
+  font-size: 0.85em;
+  color: var(--text-secondary);
+}
+
+.holding-cost {
+  font-size: 0.85em;
+  font-weight: 600;
+}
+

@@ -28,6 +28,9 @@ const UI = {
     // Track selected currency for Overview (session only)
     selectedOverviewCurrency: CONFIG.baseCurrency,
 
+    // Track selected currency for Holdings (session only)
+    selectedHoldingsCurrency: CONFIG.baseCurrency,
+
     
     /**
      * Initialize the UI module
@@ -275,6 +278,9 @@ const UI = {
             case 'admin':
                 this.updateAdminView();
                 break;
+            case 'help':
+                // static content — nothing to load
+                break;
         }
     },
 
@@ -325,6 +331,8 @@ const UI = {
         
         // Use selected currency for Overview
         const baseCurrency = this.selectedOverviewCurrency;
+        const currSel = document.getElementById('overview-currency-select');
+        if (currSel) currSel.value = baseCurrency;
         
         // Calculate portfolio stats with filtered data and selected currency (cached)
         const stats = await this._getStats(filteredData, baseCurrency);
@@ -431,14 +439,16 @@ const UI = {
             return;
         }
 
-        // Column header
+        // Column header: Symbol | P/L | ARR | Value | QTY | Price | ACB
         let html = `
             <div class="holdings-col-header">
                 <span>Symbol</span>
-                <span>Qty</span>
+                <span>P/L</span>
+                <span>ARR</span>
+                <span>Value (${baseCurrency})</span>
+                <span>QTY</span>
                 <span>Price</span>
-                <span class="right">Value (${baseCurrency})</span>
-                <span class="right">P/L · ARR</span>
+                <span>ACB (${baseCurrency})</span>
             </div>
         `;
 
@@ -451,14 +461,12 @@ const UI = {
             );
             const priceCurrency = (perf && perf.priceCurrency) || holding.currency;
 
-            // P/L
             let plClass = 'neutral', plSign = '';
             if (perf && perf.gainLoss !== null) {
                 if (perf.gainLoss > 0)      { plClass = 'positive'; plSign = '+'; }
                 else if (perf.gainLoss < 0) { plClass = 'negative'; }
             }
 
-            // ARR
             let arrClass = 'neutral', arrSign = '';
             if (perf && perf.arr !== null) {
                 if (perf.arr > 0)      { arrClass = 'positive'; arrSign = '+'; }
@@ -474,6 +482,10 @@ const UI = {
                 ? this.formatCurrency(perf.currentValueInBase, baseCurrency)
                 : this.formatCurrency(holding.costBasisConverted !== undefined ? holding.costBasisConverted : holding.totalCostInBase, baseCurrency);
 
+            const acb = holding.quantity > 0
+                ? this.formatCurrency(holding.totalCostInBase / holding.quantity, baseCurrency)
+                : '—';
+
             html += `
                 ${priceAlert}${fxAlert}
                 <div class="holding-row">
@@ -481,16 +493,7 @@ const UI = {
                         <div class="holding-symbol">${holding.symbol}</div>
                         <div class="holding-company">${holding.company || 'Unknown'}</div>
                     </div>
-                    <div class="holding-qty">${holding.quantity.toLocaleString()} sh</div>
-                    <div class="holding-price">
-                        ${hasPerformanceData && perf.currentPrice
-                            ? this.formatCurrency(perf.currentPrice, priceCurrency) +
-                              `<span class="holding-price-currency">${priceCurrency}</span>` +
-                              (perf.priceStale ? `<span class="price-stale-label">Last close</span>` : '')
-                            : '<span style="color:var(--text-muted)">—</span>'}
-                    </div>
-                    <div class="holding-value">${displayValue}</div>
-                    <div class="holding-pl ${plClass}">
+                    <div class="holding-pl-col ${plClass}">
                         <span class="holding-pl-amount">
                             ${hasPerformanceData && perf.gainLoss !== null
                                 ? plSign + this.formatCurrency(Math.abs(perf.gainLoss), baseCurrency)
@@ -500,9 +503,21 @@ const UI = {
                             ${hasPerformanceData && perf.gainLossPercent !== null
                                 ? plSign + perf.gainLossPercent.toFixed(2) + '%' : ''}
                         </span>
-                        ${hasPerformanceData && perf.arr !== null
-                            ? `<span class="holding-arr ${arrClass}">${arrSign}${perf.arr.toFixed(2)}% ARR</span>` : ''}
                     </div>
+                    <div class="holding-arr-col ${arrClass}">
+                        ${hasPerformanceData && perf.arr !== null
+                            ? arrSign + perf.arr.toFixed(2) + '%' : '—'}
+                    </div>
+                    <div class="holding-value">${displayValue}</div>
+                    <div class="holding-qty">${holding.quantity.toLocaleString()}</div>
+                    <div class="holding-price">
+                        ${hasPerformanceData && perf.currentPrice
+                            ? this.formatCurrency(perf.currentPrice, priceCurrency) +
+                              `<span class="holding-price-currency">${priceCurrency}</span>` +
+                              (perf.priceStale ? `<span class="price-stale-label">Last close</span>` : '')
+                            : '<span style="color:var(--text-muted)">—</span>'}
+                    </div>
+                    <div class="holding-acb">${acb}</div>
                 </div>
             `;
         });
@@ -533,6 +548,22 @@ const UI = {
         this.showMessage(`Currency changed to ${currency}`, 'success');
     },
 
+    changeHoldingsCurrency: async function(currency) {
+        this.selectedHoldingsCurrency = currency;
+        this.invalidateStatsCache();
+        await this.updateHoldings();
+    },
+
+    onEditAccountChange: function() {
+        const accountSelect = document.getElementById('edit-txn-account');
+        const brokerField = document.getElementById('edit-txn-broker');
+        if (!accountSelect || !brokerField) return;
+        const data = Database.getData();
+        const accounts = data.accounts || {};
+        const acc = accounts[accountSelect.value];
+        brokerField.value = acc ? (acc.broker || '') : '';
+    },
+
     /**
      * Update Holdings view
      * Shows current positions
@@ -556,27 +587,32 @@ const UI = {
             transactions: filteredTxns
         };
         
-        const stats = await this._getStats(filteredData, CONFIG.baseCurrency);
+        const baseCurrency = this.selectedHoldingsCurrency || CONFIG.baseCurrency;
+        const stats = await this._getStats(filteredData, baseCurrency);
         const holdings = stats.holdings;
-        
+
+        // Sync currency selector to current value
+        const currSel = document.getElementById('holdings-currency-select');
+        if (currSel) currSel.value = baseCurrency;
+
         const listEl = document.getElementById('holdings-list');
-        
+
         if (holdings.length === 0) {
             listEl.innerHTML = '<p class="empty-state">No holdings yet.</p>';
             return;
         }
-        
-        const baseCurrency = CONFIG.baseCurrency;
 
-        // Column header
+        // Column header: Symbol | P/L | ARR | Value | QTY | Price | ACB | Cost
         let html = `
             <div class="holdings-col-header-detail">
                 <span>Symbol</span>
-                <span>Qty</span>
+                <span>P/L</span>
+                <span>ARR</span>
+                <span>Value (${baseCurrency})</span>
+                <span>QTY</span>
                 <span>Price</span>
-                <span class="right">Cost (${baseCurrency})</span>
-                <span class="right">Value (${baseCurrency})</span>
-                <span class="right">P/L · ARR</span>
+                <span>ACB (${baseCurrency})</span>
+                <span>Cost (${baseCurrency})</span>
             </div>
         `;
 
@@ -594,10 +630,13 @@ const UI = {
 
             const priceDisplay = perf && perf.currentPrice
                 ? this.formatCurrency(perf.currentPrice, priceCurrency) +
-                  (priceCurrency !== baseCurrency && perf.currentPriceInBase
-                    ? `<span class="holding-price-currency">${priceCurrency}</span>` : '') +
+                  `<span class="holding-price-currency">${priceCurrency}</span>` +
                   (perf.priceStale ? `<span class="price-stale-label">Last close</span>` : '')
                 : '<span style="color:var(--text-muted)">—</span>';
+
+            const acb = holding.quantity > 0
+                ? this.formatCurrency(holding.totalCostInBase / holding.quantity, baseCurrency)
+                : '—';
 
             html += `
                 <div class="holding-row-detail">
@@ -605,15 +644,7 @@ const UI = {
                         <div class="holding-symbol">${holding.symbol}</div>
                         <div class="holding-company">${holding.company || 'Unknown'}</div>
                     </div>
-                    <div class="holding-qty">${holding.quantity.toLocaleString()} sh</div>
-                    <div class="holding-price">${priceDisplay}</div>
-                    <div class="holding-value">${this.formatCurrency(holding.totalCostInBase, baseCurrency)}</div>
-                    <div class="holding-value">
-                        ${perf && perf.currentValueInBase
-                            ? this.formatCurrency(perf.currentValueInBase, baseCurrency)
-                            : '<span style="color:var(--text-muted)">—</span>'}
-                    </div>
-                    <div class="holding-pl ${plClass}">
+                    <div class="holding-pl-col ${plClass}">
                         <span class="holding-pl-amount">
                             ${perf.gainLoss !== null && perf.gainLoss !== undefined
                                 ? plSign + this.formatCurrency(Math.abs(perf.gainLoss), baseCurrency)
@@ -623,9 +654,20 @@ const UI = {
                             ${perf.gainLossPercent !== null && perf.gainLossPercent !== undefined
                                 ? plSign + perf.gainLossPercent.toFixed(2) + '%' : ''}
                         </span>
-                        ${perf.arr !== null && perf.arr !== undefined
-                            ? `<span class="holding-arr ${arrClass}">${arrSign}${perf.arr.toFixed(2)}% ARR</span>` : ''}
                     </div>
+                    <div class="holding-arr-col ${arrClass}">
+                        ${perf.arr !== null && perf.arr !== undefined
+                            ? arrSign + perf.arr.toFixed(2) + '%' : '—'}
+                    </div>
+                    <div class="holding-value">
+                        ${perf && perf.currentValueInBase
+                            ? this.formatCurrency(perf.currentValueInBase, baseCurrency)
+                            : '<span style="color:var(--text-muted)">—</span>'}
+                    </div>
+                    <div class="holding-qty">${holding.quantity.toLocaleString()}</div>
+                    <div class="holding-price">${priceDisplay}</div>
+                    <div class="holding-acb">${acb}</div>
+                    <div class="holding-cost">${this.formatCurrency(holding.totalCostInBase, baseCurrency)}</div>
                 </div>
             `;
         });
@@ -659,13 +701,14 @@ const UI = {
         html += '<thead><tr>';
         html += '<th>Date</th>';
         html += '<th>Symbol</th>';
-        html += '<th>Exch</th>';
+        html += '<th class="col-mob-hide">Exch</th>';
         html += '<th>Type</th>';
         html += '<th class="right">Qty</th>';
-        html += '<th class="right">Price</th>';
-        html += '<th class="right">Fees</th>';
-        html += '<th class="right">Total</th>';
-        html += '<th>Account</th>';
+        html += '<th class="right col-mob-hide">Price</th>';
+        html += '<th class="right col-mob-hide">Fees</th>';
+        html += '<th class="right col-mob-hide">Total</th>';
+        html += '<th class="right col-mob-only">Cost</th>';
+        html += '<th class="col-mob-hide">Account</th>';
         html += '<th></th>';
         html += '</tr></thead><tbody>';
 
@@ -678,16 +721,18 @@ const UI = {
             const badgeClass = txn.type === 'buy' ? 'badge-buy' : 'badge-sell';
             const account = txn.accountId ? accounts[txn.accountId] : null;
             const accountLabel = account ? account.name : (txn.accountId || '—');
+            const cost = ((txn.total || 0) + (txn.fees || 0));
             html += '<tr>';
             html += `<td class="muted">${txn.date}</td>`;
             html += `<td class="bold">${txn.symbol}</td>`;
-            html += `<td class="muted">${txn.exchange || '—'}</td>`;
+            html += `<td class="muted col-mob-hide">${txn.exchange || '—'}</td>`;
             html += `<td><span class="${badgeClass}">${txn.type.toUpperCase()}</span></td>`;
             html += `<td class="right">${txn.quantity}</td>`;
-            html += `<td class="right">${this.formatCurrency(txn.price, txn.currency)}</td>`;
-            html += `<td class="right muted">${this.formatCurrency(txn.fees || 0, txn.currency)}</td>`;
-            html += `<td class="right bold">${this.formatCurrency(txn.total, txn.currency)}</td>`;
-            html += `<td class="muted">${accountLabel}</td>`;
+            html += `<td class="right col-mob-hide">${this.formatCurrency(txn.price, txn.currency)}</td>`;
+            html += `<td class="right muted col-mob-hide">${this.formatCurrency(txn.fees || 0, txn.currency)}</td>`;
+            html += `<td class="right bold col-mob-hide">${this.formatCurrency(txn.total, txn.currency)}</td>`;
+            html += `<td class="right bold col-mob-only">${this.formatCurrency(cost, txn.currency)}</td>`;
+            html += `<td class="muted col-mob-hide">${accountLabel}</td>`;
             html += `<td><button class="btn-icon" onclick="UI.showEditTransactionModal('${txn.id}')">Edit</button></td>`;
             html += '</tr>';
         });
@@ -819,13 +864,14 @@ const UI = {
         const data = Database.getData();
         const accounts = data.accounts || {};
 
-        const headers = ['Date','Symbol','Exchange','Type','Qty','Price','Currency','Fees','Total','Account','Broker'];
+        const headers = ['Date','Symbol','Exchange','Type','Qty','Price','Currency','Fees','Total','Account Name','Account Broker'];
         const rows = txns.map(t => {
             const acc = t.accountId ? accounts[t.accountId] : null;
             const row = [
                 t.date, t.symbol, t.exchange || '', t.type, t.quantity,
                 t.price, t.currency, t.fees || 0, t.total,
-                acc ? acc.name : (t.accountId || ''), t.broker || ''
+                acc ? acc.name : (t.accountId || ''),
+                acc ? (acc.broker || t.broker || '') : (t.broker || '')
             ];
             // Wrap fields that might contain commas in quotes
             return row.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',');
@@ -1666,14 +1712,19 @@ const UI = {
         // Account dropdown — built from Database accounts
         const accountSelect = document.getElementById('edit-txn-account');
         accountSelect.innerHTML = '<option value="">— No account —</option>';
-        const accounts = Object.values(data.accounts || {});
-        accounts.forEach(acc => {
+        const accountsMap = data.accounts || {};
+        Object.values(accountsMap).forEach(acc => {
             const opt = document.createElement('option');
             opt.value = acc.id;
             opt.textContent = acc.name;
             if (acc.id === txn.accountId) opt.selected = true;
             accountSelect.appendChild(opt);
         });
+
+        // Auto-populate broker from selected account
+        const selectedAcc = txn.accountId ? accountsMap[txn.accountId] : null;
+        const brokerField = document.getElementById('edit-txn-broker');
+        if (brokerField) brokerField.value = selectedAcc ? (selectedAcc.broker || txn.broker || '') : (txn.broker || '');
 
         // Wire up the delete button (scoped to this transaction)
         const deleteBtn = document.getElementById('edit-txn-delete-btn');
