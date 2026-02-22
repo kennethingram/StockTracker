@@ -389,8 +389,97 @@
         </div>
 
 
+    <!-- Edit Transaction Modal -->
+    <div id="edit-transaction-modal" class="modal">
+        <div class="modal-content" style="max-width: 600px;">
+            <div class="modal-header">
+                <h2>Edit Transaction</h2>
+                <button class="modal-close" onclick="UI.hideEditTransactionModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="edit-txn-id">
+
+                <div class="form-group">
+                    <label for="edit-txn-date">Date</label>
+                    <input type="date" id="edit-txn-date" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="edit-txn-symbol">Symbol</label>
+                    <input type="text" id="edit-txn-symbol" required placeholder="e.g., AAPL">
+                </div>
+
+                <div class="form-group">
+                    <label for="edit-txn-company">Company Name</label>
+                    <input type="text" id="edit-txn-company" placeholder="e.g., Apple Inc.">
+                </div>
+
+                <div class="form-group">
+                    <label for="edit-txn-exchange">Exchange</label>
+                    <input type="text" id="edit-txn-exchange" placeholder="e.g., NYSE, TSX, LSE, NASDAQ">
+                </div>
+
+                <div class="form-group">
+                    <label for="edit-txn-type">Type</label>
+                    <select id="edit-txn-type" required>
+                        <option value="buy">BUY</option>
+                        <option value="sell">SELL</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="edit-txn-quantity">Quantity</label>
+                    <input type="number" id="edit-txn-quantity" required min="0" step="any" placeholder="0">
+                </div>
+
+                <div class="form-group">
+                    <label for="edit-txn-currency">Currency</label>
+                    <select id="edit-txn-currency" required>
+                        <!-- Populated by JS from CONFIG.supportedCurrencies -->
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="edit-txn-price">Price per Share</label>
+                    <input type="number" id="edit-txn-price" required min="0" step="any" placeholder="0.00">
+                </div>
+
+                <div class="form-group">
+                    <label for="edit-txn-fees">Fees</label>
+                    <input type="number" id="edit-txn-fees" min="0" step="any" placeholder="0.00">
+                </div>
+
+                <div class="form-group">
+                    <label for="edit-txn-total">Total</label>
+                    <input type="number" id="edit-txn-total" min="0" step="any" placeholder="0.00">
+                </div>
+
+                <div class="form-group">
+                    <label for="edit-txn-account">Account</label>
+                    <select id="edit-txn-account">
+                        <option value="">— No account —</option>
+                        <!-- Populated by JS from Database accounts -->
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="edit-txn-broker">Broker</label>
+                    <input type="text" id="edit-txn-broker" placeholder="e.g., Questrade">
+                </div>
+
+                <div class="form-actions edit-txn-actions">
+                    <button type="button" class="btn-danger" id="edit-txn-delete-btn">Delete Transaction</button>
+                    <div class="edit-txn-confirm-actions">
+                        <button type="button" class="btn-secondary" onclick="UI.hideEditTransactionModal()">Cancel</button>
+                        <button type="button" class="btn-primary" onclick="UI.saveEditedTransaction()">Save Changes</button>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
-    
+
+    </div>
+
     <!-- Load configuration first -->
     <script src="config.js"></script>
     <!-- Load local dev keys if present (gitignored, silently skipped in production) -->

@@ -579,8 +579,12 @@ const UI = {
         // Show newest first
         const sorted = [...filteredTxns].reverse();
 
+        const accounts = data.accounts || {};
+
         sorted.forEach(txn => {
             const badgeClass = txn.type === 'buy' ? 'badge-buy' : 'badge-sell';
+            const account = txn.accountId ? accounts[txn.accountId] : null;
+            const accountLabel = account ? account.name : (txn.accountId || '—');
             html += '<tr>';
             html += `<td class="muted">${txn.date}</td>`;
             html += `<td class="bold">${txn.symbol}</td>`;
@@ -590,8 +594,8 @@ const UI = {
             html += `<td class="right">${this.formatCurrency(txn.price, txn.currency)}</td>`;
             html += `<td class="right muted">${this.formatCurrency(txn.fees || 0, txn.currency)}</td>`;
             html += `<td class="right bold">${this.formatCurrency(txn.total, txn.currency)}</td>`;
-            html += `<td class="muted">${txn.accountId || '—'}</td>`;
-            html += `<td><button class="btn-icon danger" onclick="UI.deleteTransaction('${txn.id}')">Delete</button></td>`;
+            html += `<td class="muted">${accountLabel}</td>`;
+            html += `<td><button class="btn-icon" onclick="UI.showEditTransactionModal('${txn.id}')">Edit</button></td>`;
             html += '</tr>';
         });
 
@@ -1414,6 +1418,122 @@ const UI = {
      processAllFiles: async function() {
         UI.showMessage('Batch processing functionality coming in Phase 2!', 'info');
         console.log('Would process all files');
+    },
+
+    /**
+     * Open the edit transaction modal populated with the given transaction's data
+     */
+    showEditTransactionModal: function(transactionId) {
+        const data = Database.getData();
+        const txn = data.transactions.find(t => t.id === transactionId);
+        if (!txn) return;
+
+        // Populate hidden ID
+        document.getElementById('edit-txn-id').value = txn.id;
+
+        // Core fields
+        document.getElementById('edit-txn-date').value = txn.date || '';
+        document.getElementById('edit-txn-symbol').value = txn.symbol || '';
+        document.getElementById('edit-txn-company').value = txn.company || '';
+        document.getElementById('edit-txn-exchange').value = txn.exchange || '';
+        document.getElementById('edit-txn-type').value = txn.type || 'buy';
+        document.getElementById('edit-txn-quantity').value = txn.quantity || '';
+        document.getElementById('edit-txn-price').value = txn.price || '';
+        document.getElementById('edit-txn-fees').value = txn.fees || '';
+        document.getElementById('edit-txn-total').value = txn.total || '';
+        document.getElementById('edit-txn-broker').value = txn.broker || '';
+
+        // Currency dropdown
+        const currencySelect = document.getElementById('edit-txn-currency');
+        currencySelect.innerHTML = '';
+        (CONFIG.supportedCurrencies || []).forEach(c => {
+            const opt = document.createElement('option');
+            opt.value = c.code;
+            opt.textContent = `${c.code} — ${c.name}`;
+            if (c.code === txn.currency) opt.selected = true;
+            currencySelect.appendChild(opt);
+        });
+
+        // Account dropdown — built from Database accounts
+        const accountSelect = document.getElementById('edit-txn-account');
+        accountSelect.innerHTML = '<option value="">— No account —</option>';
+        const accounts = Object.values(data.accounts || {});
+        accounts.forEach(acc => {
+            const opt = document.createElement('option');
+            opt.value = acc.id;
+            opt.textContent = acc.name;
+            if (acc.id === txn.accountId) opt.selected = true;
+            accountSelect.appendChild(opt);
+        });
+
+        // Wire up the delete button (scoped to this transaction)
+        const deleteBtn = document.getElementById('edit-txn-delete-btn');
+        deleteBtn.onclick = () => this.deleteTransactionFromModal(txn.id);
+
+        document.getElementById('edit-transaction-modal').classList.add('active');
+    },
+
+    hideEditTransactionModal: function() {
+        document.getElementById('edit-transaction-modal').classList.remove('active');
+    },
+
+    /**
+     * Save changes from the edit transaction modal back to the database
+     */
+    saveEditedTransaction: async function() {
+        const id = document.getElementById('edit-txn-id').value;
+        if (!id) return;
+
+        const updates = {
+            date:     document.getElementById('edit-txn-date').value,
+            symbol:   document.getElementById('edit-txn-symbol').value.trim().toUpperCase(),
+            company:  document.getElementById('edit-txn-company').value.trim(),
+            exchange: document.getElementById('edit-txn-exchange').value.trim().toUpperCase(),
+            type:     document.getElementById('edit-txn-type').value,
+            quantity: parseFloat(document.getElementById('edit-txn-quantity').value) || 0,
+            currency: document.getElementById('edit-txn-currency').value,
+            price:    parseFloat(document.getElementById('edit-txn-price').value) || 0,
+            fees:     parseFloat(document.getElementById('edit-txn-fees').value) || 0,
+            total:    parseFloat(document.getElementById('edit-txn-total').value) || 0,
+            accountId: document.getElementById('edit-txn-account').value || null,
+            broker:   document.getElementById('edit-txn-broker').value.trim(),
+        };
+
+        UI.showLoading('Saving transaction...');
+        try {
+            await Database.updateTransaction(id, updates);
+            UI.hideLoading();
+            this.hideEditTransactionModal();
+            UI.showMessage('Transaction updated', 'success');
+            this.updateTransactions();
+            this.updateOverview();
+            this.updateHoldings();
+        } catch (error) {
+            UI.hideLoading();
+            UI.showMessage('Error saving transaction: ' + error.message, 'error');
+        }
+    },
+
+    /**
+     * Delete a transaction from within the edit modal (requires confirmation)
+     */
+    deleteTransactionFromModal: async function(transactionId) {
+        const confirmed = confirm('Delete this transaction?\n\nThis cannot be undone. Are you sure?');
+        if (!confirmed) return;
+
+        UI.showLoading('Deleting transaction...');
+        try {
+            await Database.deleteTransaction(transactionId);
+            UI.hideLoading();
+            this.hideEditTransactionModal();
+            UI.showMessage('Transaction deleted', 'success');
+            this.updateTransactions();
+            this.updateOverview();
+            this.updateHoldings();
+        } catch (error) {
+            UI.hideLoading();
+            UI.showMessage('Error deleting transaction: ' + error.message, 'error');
+        }
     },
 
     /**

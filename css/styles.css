@@ -959,6 +959,31 @@ button {
 
 .form-actions button { min-width: 100px; padding: 9px 20px; }
 
+/* Edit transaction modal — delete left, cancel+save right */
+.edit-txn-actions {
+  justify-content: space-between;
+}
+.edit-txn-confirm-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.btn-danger {
+  background: var(--negative-bg);
+  color: var(--negative);
+  border: 1px solid var(--negative);
+  border-radius: var(--radius);
+  padding: 9px 20px;
+  font-size: 0.82em;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.btn-danger:hover {
+  background: var(--negative);
+  color: #fff;
+}
+
 /* ===================================
    Filters Bar
    =================================== */

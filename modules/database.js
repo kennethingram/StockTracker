@@ -265,6 +265,17 @@ const Database = {
     },
 
     /**
+     * Update an existing transaction's fields
+     */
+    updateTransaction: async function(transactionId, updates) {
+        const index = this.data.transactions.findIndex(t => t.id === transactionId);
+        if (index === -1) throw new Error('Transaction not found');
+        Object.assign(this.data.transactions[index], updates);
+        await this.saveToDrive();
+        return this.data.transactions[index];
+    },
+
+    /**
      * Delete a transaction
      */
     deleteTransaction: async function(transactionId) {
