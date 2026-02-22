@@ -7,13 +7,15 @@
 const Prices = {
     // Cache for prices (avoid excessive API calls)
     priceCache: {},
-    
+
     // Cache expiry time (15 minutes)
     CACHE_DURATION: 15 * 60 * 1000,
-    
-    // Rate limiting for Alpha Vantage
-    alphaVantageCallCount: 0,
-    alphaVantageResetTime: Date.now(),
+
+    // Short-lived cache for failed fetches — prevents hammering the API on repeated failures
+    failedFetchCache: {},
+    FAILED_FETCH_CACHE_DURATION: 5 * 60 * 1000, // 5 minutes
+
+    // Rate limiting for Alpha Vantage (25/day, persisted in localStorage across page loads)
     MAX_ALPHA_VANTAGE_CALLS_PER_DAY: 25,
     
     // Rate limiting for Finnhub
@@ -36,14 +38,21 @@ const Prices = {
             ? this.formatSymbolForAlphaVantage(symbol, exchange)
             : this.formatSymbolForFinnhub(symbol, exchange);
         
-        // Check cache first
+        // Check price cache first
         const cacheKey = formattedSymbol;
         const cached = this.getCachedPrice(cacheKey);
         if (cached) {
             console.log('Using cached price for', symbol, ':', cached);
             return cached;
         }
-        
+
+        // Check failed fetch cache — skip API call if this symbol recently returned nothing
+        const recentFailure = this.failedFetchCache[cacheKey];
+        if (recentFailure && Date.now() - recentFailure < this.FAILED_FETCH_CACHE_DURATION) {
+            console.log('Skipping recent failed fetch for', symbol);
+            return null;
+        }
+
         // Check rate limits
         if (useAlphaVantage && !this.checkAlphaVantageRateLimit()) {
             console.warn('Alpha Vantage rate limit reached (25/day)');
@@ -66,10 +75,11 @@ const Prices = {
                     timestamp: Date.now(),
                     source: useAlphaVantage ? 'AlphaVantage' : 'Finnhub'
                 };
-                
                 return priceData;
             }
-            
+
+            // Record failure so we don't retry for 5 minutes
+            this.failedFetchCache[cacheKey] = Date.now();
             return null;
             
         } catch (error) {
@@ -299,24 +309,27 @@ const Prices = {
     },
     
     /**
-     * Check Alpha Vantage rate limit (25 per day)
+     * Check Alpha Vantage rate limit (25 per day).
+     * Persisted in localStorage so the count survives page refreshes.
      */
     checkAlphaVantageRateLimit: function() {
-        const now = Date.now();
-        const dayInMs = 24 * 60 * 60 * 1000;
-        
-        if (now - this.alphaVantageResetTime > dayInMs) {
-            this.alphaVantageCallCount = 0;
-            this.alphaVantageResetTime = now;
+        const today = new Date().toDateString();
+        const stored = localStorage.getItem('av_calls');
+        let data = stored ? JSON.parse(stored) : { count: 0, date: today };
+
+        // Reset if it's a new day
+        if (data.date !== today) {
+            data = { count: 0, date: today };
         }
-        
-        if (this.alphaVantageCallCount >= this.MAX_ALPHA_VANTAGE_CALLS_PER_DAY) {
+
+        if (data.count >= this.MAX_ALPHA_VANTAGE_CALLS_PER_DAY) {
+            console.warn(`Alpha Vantage daily limit reached (${data.count}/${this.MAX_ALPHA_VANTAGE_CALLS_PER_DAY})`);
             return false;
         }
-        
-        this.alphaVantageCallCount++;
-        console.log(`Alpha Vantage calls: ${this.alphaVantageCallCount}/${this.MAX_ALPHA_VANTAGE_CALLS_PER_DAY} today`);
-        
+
+        data.count++;
+        localStorage.setItem('av_calls', JSON.stringify(data));
+        console.log(`Alpha Vantage calls: ${data.count}/${this.MAX_ALPHA_VANTAGE_CALLS_PER_DAY} today`);
         return true;
     },
     
