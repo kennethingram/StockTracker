@@ -25,7 +25,16 @@
         <!-- Login Screen (shown when not authenticated) -->
         <div id="login-screen" class="screen active">
             <div class="login-container">
-                <h1>📊 StockTracker</h1>
+                <div class="login-logo">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 36 44" width="60" height="73" aria-label="StockTracker logo">
+                        <rect x="0" y="0" width="36" height="36" rx="7" fill="#0d1117"/>
+                        <polygon points="4,29 10,22 17,25 24,13 32,8 32,36 4,36" fill="rgba(20,184,166,0.12)" stroke="none"/>
+                        <polyline points="4,29 10,22 17,25 24,13 32,8" fill="none" stroke="#14b8a6" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+                        <circle cx="32" cy="8" r="2.5" fill="#14b8a6"/>
+                        <text x="18" y="43" text-anchor="middle" font-family="'Courier New',monospace" font-size="9" font-weight="700" fill="#14b8a6" letter-spacing="1.5">ST</text>
+                    </svg>
+                </div>
+                <h1 class="login-title">StockTracker</h1>
                 <p class="tagline">Your portfolio, your data, your control</p>
                 
                 <div class="features">
@@ -60,8 +69,15 @@
             <!-- Navigation Bar -->
             <nav class="navbar">
                 <div class="nav-brand">
-                    <button id="hamburger-btn" class="hamburger-btn" aria-label="Menu">☰</button>
-                    <h2>📊 StockTracker</h2>
+                    <!-- StockTracker Logo -->
+                    <svg class="nav-logo" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 36 44" width="36" height="44" aria-label="StockTracker">
+                        <rect x="0" y="0" width="36" height="36" rx="7" fill="#0d1117"/>
+                        <polygon points="4,29 10,22 17,25 24,13 32,8 32,36 4,36" fill="rgba(20,184,166,0.08)" stroke="none"/>
+                        <polyline points="4,29 10,22 17,25 24,13 32,8" fill="none" stroke="#14b8a6" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+                        <circle cx="32" cy="8" r="2.5" fill="#14b8a6"/>
+                        <text x="18" y="43" text-anchor="middle" font-family="'Courier New',monospace" font-size="9" font-weight="700" fill="#14b8a6" letter-spacing="1.5">ST</text>
+                    </svg>
+                    <span class="nav-brand-name">StockTracker</span>
                 </div>
                 <div class="nav-menu">
                     <button class="nav-btn active" data-view="overview">Overview</button>
@@ -72,8 +88,29 @@
                     <button class="nav-btn" data-view="admin">⚙️ Admin</button>
                 </div>
                 <div class="nav-actions">
-                    <span id="user-email" class="user-email"></span>
-                    <button id="signout-btn" class="btn-secondary">Sign Out</button>
+                    <!-- Profile dropdown -->
+                    <div class="profile-wrapper" id="profile-wrapper">
+                        <button class="profile-avatar-btn" id="profile-avatar-btn" aria-label="Profile menu" aria-expanded="false">
+                            <span id="profile-initials">?</span>
+                        </button>
+                        <div class="profile-dropdown" id="profile-dropdown" role="menu">
+                            <div class="profile-dropdown-header">
+                                <div class="profile-dropdown-avatar">
+                                    <span id="profile-dropdown-initials">?</span>
+                                </div>
+                                <div class="profile-dropdown-info">
+                                    <div class="profile-dropdown-name" id="profile-dropdown-name">User</div>
+                                    <div class="profile-dropdown-email" id="profile-dropdown-email"></div>
+                                </div>
+                            </div>
+                            <div class="profile-dropdown-divider"></div>
+                            <button class="profile-dropdown-item" onclick="UI.switchView('admin'); UI.closeProfileMenu();">⚙️ Admin Settings</button>
+                            <div class="profile-dropdown-divider"></div>
+                            <button class="profile-dropdown-item profile-dropdown-signout" id="profile-signout-btn">Sign Out</button>
+                        </div>
+                    </div>
+                    <!-- Hamburger (mobile only — rightmost) -->
+                    <button id="hamburger-btn" class="hamburger-btn" aria-label="Open menu">☰</button>
                 </div>
             </nav>
 
@@ -83,7 +120,16 @@
             <!-- Mobile Sidebar Nav -->
             <nav id="nav-sidebar" class="nav-sidebar">
                 <div class="nav-sidebar-header">
-                    <span>📊 StockTracker</span>
+                    <div class="nav-sidebar-brand">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 36 44" width="28" height="34" aria-hidden="true">
+                            <rect x="0" y="0" width="36" height="36" rx="7" fill="#0d1117"/>
+                            <polygon points="4,29 10,22 17,25 24,13 32,8 32,36 4,36" fill="rgba(20,184,166,0.08)" stroke="none"/>
+                            <polyline points="4,29 10,22 17,25 24,13 32,8" fill="none" stroke="#14b8a6" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+                            <circle cx="32" cy="8" r="2.5" fill="#14b8a6"/>
+                            <text x="18" y="43" text-anchor="middle" font-family="'Courier New',monospace" font-size="9" font-weight="700" fill="#14b8a6" letter-spacing="1.5">ST</text>
+                        </svg>
+                        <span>StockTracker</span>
+                    </div>
                     <button id="sidebar-close-btn" class="sidebar-close-btn">✕</button>
                 </div>
                 <div class="nav-sidebar-links">

@@ -106,6 +106,47 @@ const UI = {
 
         const sidebarSignout = document.getElementById('sidebar-signout-btn');
         if (sidebarSignout) sidebarSignout.addEventListener('click', () => Auth.signOut());
+
+        // Profile dropdown
+        const profileAvatarBtn = document.getElementById('profile-avatar-btn');
+        const profileSignoutBtn = document.getElementById('profile-signout-btn');
+
+        if (profileAvatarBtn) {
+            profileAvatarBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.toggleProfileMenu();
+            });
+        }
+
+        if (profileSignoutBtn) {
+            profileSignoutBtn.addEventListener('click', () => {
+                this.closeProfileMenu();
+                Auth.signOut();
+            });
+        }
+
+        // Close profile dropdown on outside click
+        document.addEventListener('click', (e) => {
+            const wrapper = document.getElementById('profile-wrapper');
+            if (wrapper && !wrapper.contains(e.target)) {
+                this.closeProfileMenu();
+            }
+        });
+    },
+
+    toggleProfileMenu: function() {
+        const dropdown = document.getElementById('profile-dropdown');
+        const btn = document.getElementById('profile-avatar-btn');
+        if (!dropdown) return;
+        const isOpen = dropdown.classList.toggle('open');
+        if (btn) btn.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+    },
+
+    closeProfileMenu: function() {
+        const dropdown = document.getElementById('profile-dropdown');
+        const btn = document.getElementById('profile-avatar-btn');
+        if (dropdown) dropdown.classList.remove('open');
+        if (btn) btn.setAttribute('aria-expanded', 'false');
     },
 
     /**

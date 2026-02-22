@@ -49,11 +49,9 @@ const Auth = {
             signInBtn.addEventListener('click', () => this.signIn());
         }
         
-        // Set up the Sign Out button click handler
+        // Set up sign-out handlers (profile dropdown + legacy button if present)
         const signOutBtn = document.getElementById('signout-btn');
-        if (signOutBtn) {
-            signOutBtn.addEventListener('click', () => this.signOut());
-        }
+        if (signOutBtn) signOutBtn.addEventListener('click', () => this.signOut());
     },
     
     /**
@@ -116,7 +114,7 @@ const Auth = {
     },
     
     /**
-     * Get user's email from Google
+     * Get user's email and name from Google
      */
     getUserInfo: async function() {
         try {
@@ -125,17 +123,45 @@ const Auth = {
                     'Authorization': `Bearer ${this.accessToken}`
                 }
             });
-            
+
             const data = await response.json();
             this.userEmail = data.email;
-            
-            // Display email in navbar
-            const userEmailEl = document.getElementById('user-email');
-            if (userEmailEl) {
-                userEmailEl.textContent = this.userEmail;
+            const displayName = data.name || data.given_name || null;
+
+            // Derive initials: prefer given+family name, fall back to email prefix
+            let initials = '?';
+            if (data.given_name && data.family_name) {
+                initials = (data.given_name[0] + data.family_name[0]).toUpperCase();
+            } else if (data.given_name) {
+                initials = data.given_name.slice(0, 2).toUpperCase();
+            } else if (data.email) {
+                const prefix = data.email.split('@')[0];
+                initials = prefix.slice(0, 2).toUpperCase();
             }
-            
-            console.log('User email:', this.userEmail);
+
+            // Profile avatar button initials (navbar)
+            const profileInitialsEl = document.getElementById('profile-initials');
+            if (profileInitialsEl) profileInitialsEl.textContent = initials;
+
+            // Dropdown header
+            const dropdownInitialsEl = document.getElementById('profile-dropdown-initials');
+            if (dropdownInitialsEl) dropdownInitialsEl.textContent = initials;
+
+            const dropdownNameEl = document.getElementById('profile-dropdown-name');
+            if (dropdownNameEl) dropdownNameEl.textContent = displayName || this.userEmail;
+
+            const dropdownEmailEl = document.getElementById('profile-dropdown-email');
+            if (dropdownEmailEl) dropdownEmailEl.textContent = this.userEmail;
+
+            // Mobile sidebar footer email
+            const sidebarEmailEl = document.getElementById('sidebar-user-email');
+            if (sidebarEmailEl) sidebarEmailEl.textContent = this.userEmail;
+
+            // Legacy email span (hidden on mobile, kept for compatibility)
+            const userEmailEl = document.getElementById('user-email');
+            if (userEmailEl) userEmailEl.textContent = this.userEmail;
+
+            console.log('User info loaded:', this.userEmail, '(initials:', initials + ')');
         } catch (error) {
             console.error('Error getting user info:', error);
         }
