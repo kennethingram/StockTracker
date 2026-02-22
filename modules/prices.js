@@ -75,17 +75,43 @@ const Prices = {
                     timestamp: Date.now(),
                     source: useAlphaVantage ? 'AlphaVantage' : 'Finnhub'
                 };
+                this.saveLastKnownPrice(cacheKey, priceData);
                 return priceData;
             }
 
             // Record failure so we don't retry for 5 minutes
             this.failedFetchCache[cacheKey] = Date.now();
+
+            // Fall back to last known price from localStorage
+            const lastKnown = this.getLastKnownPrice(cacheKey);
+            if (lastKnown) {
+                console.log('Using last known price for', symbol, '(stale, as of', lastKnown.asOf + ')');
+                return lastKnown;
+            }
             return null;
-            
+
         } catch (error) {
             console.error('Error fetching price for', symbol, ':', error);
             return null;
         }
+    },
+
+    // Persist last successfully fetched price to localStorage
+    saveLastKnownPrice: function(symbol, priceData) {
+        const date = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+        localStorage.setItem(`price_last_${symbol}`, JSON.stringify({
+            price: priceData.price,
+            currency: priceData.currency,
+            date
+        }));
+    },
+
+    // Retrieve last known price from localStorage, returned with stale flag
+    getLastKnownPrice: function(symbol) {
+        const stored = localStorage.getItem(`price_last_${symbol}`);
+        if (!stored) return null;
+        const data = JSON.parse(stored);
+        return { price: data.price, currency: data.currency, stale: true, asOf: data.date };
     },
     
     /**

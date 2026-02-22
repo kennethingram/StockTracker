@@ -401,13 +401,17 @@ const Portfolio = {
         }
         
         // Handle both number and { price, currency } object formats
-        let currentPrice, priceCurrency;
+        let currentPrice, priceCurrency, priceStale, priceAsOf;
         if (typeof currentPriceData === 'object' && currentPriceData !== null) {
             currentPrice = currentPriceData.price;
             priceCurrency = currentPriceData.currency || holding.currency;
+            priceStale = currentPriceData.stale || false;
+            priceAsOf = currentPriceData.asOf || null;
         } else {
             currentPrice = currentPriceData;
             priceCurrency = holding.currency;
+            priceStale = false;
+            priceAsOf = null;
         }
         
         // Calculate current value in native currency
@@ -455,6 +459,8 @@ const Portfolio = {
         return {
             currentPrice: currentPrice,
             priceCurrency: priceCurrency,
+            priceStale: priceStale,
+            priceAsOf: priceAsOf,
             currentPriceInBase: currentPriceInBase,
             currentValue: currentValue,
             currentValueInBase: currentValueInBase,

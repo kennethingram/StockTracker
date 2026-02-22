@@ -391,7 +391,9 @@ const UI = {
                     <div class="holding-qty">${holding.quantity.toLocaleString()} sh</div>
                     <div class="holding-price">
                         ${hasPerformanceData && perf.currentPrice
-                            ? this.formatCurrency(perf.currentPrice, priceCurrency) + `<span class="holding-price-currency">${priceCurrency}</span>`
+                            ? this.formatCurrency(perf.currentPrice, priceCurrency) +
+                              `<span class="holding-price-currency">${priceCurrency}</span>` +
+                              (perf.priceStale ? `<span class="price-stale-label">Last close</span>` : '')
                             : '<span style="color:var(--text-muted)">—</span>'}
                     </div>
                     <div class="holding-value">${displayValue}</div>
@@ -500,7 +502,8 @@ const UI = {
             const priceDisplay = perf && perf.currentPrice
                 ? this.formatCurrency(perf.currentPrice, priceCurrency) +
                   (priceCurrency !== baseCurrency && perf.currentPriceInBase
-                    ? `<span class="holding-price-currency">${priceCurrency}</span>` : '')
+                    ? `<span class="holding-price-currency">${priceCurrency}</span>` : '') +
+                  (perf.priceStale ? `<span class="price-stale-label">Last close</span>` : '')
                 : '<span style="color:var(--text-muted)">—</span>';
 
             html += `

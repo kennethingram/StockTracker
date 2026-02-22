@@ -456,6 +456,13 @@ button {
   margin-left: 3px;
 }
 
+.price-stale-label {
+  display: block;
+  font-size: 0.68em;
+  color: var(--text-muted);
+  margin-top: 1px;
+}
+
 .holding-value {
   font-weight: 600;
   font-size: 0.88em;
