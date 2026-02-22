@@ -1,21 +1,40 @@
 // ===================================
 // CONFIGURATION TEMPLATE
-// Copy this file to config.js and fill in your API keys
+// Copy this file to config.js and fill in your values.
 // NEVER commit config.js to GitHub!
 // ===================================
+//
+// HOW API KEYS WORK:
+// - In production (Cloudflare Pages): API keys live in Cloudflare environment secrets.
+//   The app calls /api/gemini and /api/prices — the proxy injects the keys server-side.
+//   The keys below are NOT used in production.
+// - In local development (localhost): The app calls the APIs directly using the keys below.
+//   Keep them here, and keep this file out of Git.
+// ===================================
+
+// Detect environment automatically
+const IS_LOCAL = ['localhost', '127.0.0.1', ''].includes(window.location.hostname);
 
 const CONFIG = {
-    // Google OAuth Client ID (public - safe to commit)
+    // When deployed, API calls go through the Cloudflare proxy.
+    // When local, API calls go directly to the APIs using the keys below.
+    useProxy: !IS_LOCAL,
+
+    // Google OAuth Client ID (public — safe to commit if needed)
     googleClientId: 'YOUR_GOOGLE_CLIENT_ID_HERE',
-    
-    // Google Gemini API Key (PRIVATE - get from https://aistudio.google.com/app/apikey)
+
+    // -------------------------------------------------------
+    // LOCAL DEVELOPMENT ONLY — not used in production
+    // In production, set these as Cloudflare environment secrets instead.
+    // -------------------------------------------------------
+
+    // Google Gemini API Key — https://aistudio.google.com/app/apikey
     geminiApiKey: 'YOUR_GEMINI_API_KEY_HERE',
-    
-    // Stock Price API Keys
-    // Finnhub: For US/Canadian stocks (60 calls/min) - https://finnhub.io/register
+
+    // Finnhub: US/Canadian stocks (60 calls/min) — https://finnhub.io/register
     finnhubApiKey: 'YOUR_FINNHUB_API_KEY_HERE',
-    
-    // Alpha Vantage: For UK/international stocks (25 calls/day) - https://www.alphavantage.co/support/#api-key
+
+    // Alpha Vantage: UK/international stocks (25 calls/day) — https://www.alphavantage.co/support/#api-key
     alphaVantageApiKey: 'YOUR_ALPHA_VANTAGE_API_KEY_HERE',
 
     // Database settings

@@ -225,11 +225,13 @@ const Parser = {
      getAvailableModels: async function() {
         const apiKey = CONFIG.geminiApiKey;
         
-        if (!apiKey || apiKey === 'YOUR_GEMINI_API_KEY_HERE') {
+        if (!CONFIG.useProxy && (!apiKey || apiKey === 'YOUR_GEMINI_API_KEY_HERE')) {
             throw new Error('Gemini API key not configured');
         }
-        
-        const url = `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`;
+
+        const url = CONFIG.useProxy
+            ? '/api/gemini'
+            : `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`;
         
         console.log('Fetching available Gemini models...');
         
@@ -290,10 +292,10 @@ const Parser = {
      callGeminiAPI: async function(contractNoteText, fileName) {
         const apiKey = CONFIG.geminiApiKey;
         
-        if (!apiKey || apiKey === 'YOUR_GEMINI_API_KEY_HERE') {
+        if (!CONFIG.useProxy && (!apiKey || apiKey === 'YOUR_GEMINI_API_KEY_HERE')) {
             throw new Error('Gemini API key not configured');
         }
-        
+
         // Auto-discover best available model
         let modelName;
         try {
@@ -303,10 +305,12 @@ const Parser = {
             // Fallback to a known model
             modelName = 'models/gemini-pro';
         }
-        
+
         console.log('Using model:', modelName);
-        
-        const url = `https://generativelanguage.googleapis.com/v1beta/${modelName}:generateContent?key=${apiKey}`;
+
+        const url = CONFIG.useProxy
+            ? `/api/gemini?model=${encodeURIComponent(modelName)}`
+            : `https://generativelanguage.googleapis.com/v1beta/${modelName}:generateContent?key=${apiKey}`;
     
             // Create the prompt
         const prompt = `You are a financial data extraction assistant. Extract ALL transaction details from this contract note.
@@ -479,7 +483,7 @@ IMPORTANT:
      */
     callGeminiVisionAPI: async function(base64Data, fileName) {
         const apiKey = CONFIG.geminiApiKey;
-        
+
         // Auto-discover best available model
         let modelName;
         try {
@@ -488,10 +492,12 @@ IMPORTANT:
             console.error('Model discovery failed, using fallback:', error);
             modelName = 'models/gemini-pro-vision';
         }
-        
+
         console.log('Using Vision model:', modelName);
-        
-        const url = `https://generativelanguage.googleapis.com/v1beta/${modelName}:generateContent?key=${apiKey}`;
+
+        const url = CONFIG.useProxy
+            ? `/api/gemini?model=${encodeURIComponent(modelName)}`
+            : `https://generativelanguage.googleapis.com/v1beta/${modelName}:generateContent?key=${apiKey}`;
         
         const prompt = `You are a financial data extraction assistant. Extract ALL transaction details from this contract note image/PDF.
 

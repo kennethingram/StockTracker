@@ -131,12 +131,14 @@ const Prices = {
     fetchPriceFromAlphaVantage: async function(symbol, exchange) {
         const apiKey = CONFIG.alphaVantageApiKey;
         
-        if (!apiKey || apiKey === 'YOUR_ALPHA_VANTAGE_API_KEY_HERE') {
+        if (!CONFIG.useProxy && (!apiKey || apiKey === 'YOUR_ALPHA_VANTAGE_API_KEY_HERE')) {
             console.warn('Alpha Vantage API key not configured');
             return null;
         }
-        
-        const url = `https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=${symbol}&apikey=${apiKey}`;
+
+        const url = CONFIG.useProxy
+            ? `/api/prices?source=alphavantage&symbol=${encodeURIComponent(symbol)}`
+            : `https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=${symbol}&apikey=${apiKey}`;
         
         console.log('Fetching price from Alpha Vantage for:', symbol);
         
@@ -195,12 +197,14 @@ const Prices = {
     fetchPriceFromFinnhub: async function(symbol, exchange) {
         const apiKey = CONFIG.finnhubApiKey;
         
-        if (!apiKey || apiKey === 'YOUR_FINNHUB_API_KEY_HERE') {
+        if (!CONFIG.useProxy && (!apiKey || apiKey === 'YOUR_FINNHUB_API_KEY_HERE')) {
             console.warn('Finnhub API key not configured');
             return null;
         }
-        
-        const url = `https://finnhub.io/api/v1/quote?symbol=${symbol}&token=${apiKey}`;
+
+        const url = CONFIG.useProxy
+            ? `/api/prices?source=finnhub&symbol=${encodeURIComponent(symbol)}`
+            : `https://finnhub.io/api/v1/quote?symbol=${symbol}&token=${apiKey}`;
         
         console.log('Fetching price from Finnhub for:', symbol);
         
