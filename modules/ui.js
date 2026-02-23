@@ -181,84 +181,148 @@ const UI = {
     },
     
     /**
-     * Populate filter dropdowns for a view
+     * Populate filter popover checkboxes for a view
      */
      populateFilters: function(viewName) {
-        console.log('Populating filters for:', viewName);
-        
         if (typeof Database === 'undefined') return;
-        
         const data = Database.getData();
         if (!data) return;
-        
-        // Get unique accounts
+
         const accounts = Object.values(data.accounts || {});
-        
-        // Get unique holders
-        const holdersSet = new Set();
-        accounts.forEach(acc => {
-            if (acc.holders) {
-                acc.holders.forEach(h => holdersSet.add(h));
+        const holders = [...new Set(accounts.flatMap(a => a.holders || []))].sort();
+
+        // Account checkboxes
+        const fpAcc = document.getElementById(`${viewName}-fp-accounts`);
+        if (fpAcc) {
+            if (accounts.length === 0) {
+                fpAcc.innerHTML = '<span class="filter-pop-empty">No accounts</span>';
+            } else {
+                fpAcc.innerHTML = accounts.map(acc => {
+                    const checked = this.activeFilters.accounts.includes(acc.id) ? 'checked' : '';
+                    const dot = acc.isActive ? '🟢' : '⚫';
+                    return `<label class="filter-pop-item">
+                        <input type="checkbox" ${checked}
+                            onchange="UI.onFilterCheckboxChange('${viewName}','accounts','${acc.id}',this.checked)">
+                        ${dot} ${acc.name}
+                    </label>`;
+                }).join('');
             }
-        });
-        const holders = Array.from(holdersSet).sort();
-        
-        // Populate account filters as multi-select dropdown
-        const accountFilterEl = document.getElementById(`${viewName}-account-filters`);
-        if (accountFilterEl) {
-            const selCount = this.activeFilters.accounts.length;
-            const labelText = selCount === 0 ? 'All' : `${selCount} of ${accounts.length} selected`;
-            let html = `<div class="filter-select-label" id="${viewName}-account-label">${labelText}</div>`;
-            html += '<select multiple class="multi-select-dropdown" id="' + viewName + '-account-select" onchange="UI.onMultiSelectChange(\'' + viewName + '\', \'accounts\')">';
-            accounts.forEach(acc => {
-                const selected = this.activeFilters.accounts.includes(acc.id) ? 'selected' : '';
-                const statusBadge = acc.isActive ? '🟢' : '⚫';
-                html += `<option value="${acc.id}" ${selected}>${statusBadge} ${acc.name}</option>`;
-            });
-            html += '</select>';
-            accountFilterEl.innerHTML = html || '<p style="color: var(--text-muted); font-size: 0.85em;">No accounts</p>';
         }
 
-        // Populate holder filters as multi-select dropdown
-        const holderFilterEl = document.getElementById(`${viewName}-holder-filters`);
-        if (holderFilterEl) {
-            const selCount = this.activeFilters.holders.length;
-            const labelText = selCount === 0 ? 'All' : `${selCount} of ${holders.length} selected`;
-            let html = `<div class="filter-select-label" id="${viewName}-holder-label">${labelText}</div>`;
-            html += '<select multiple class="multi-select-dropdown" id="' + viewName + '-holder-select" onchange="UI.onMultiSelectChange(\'' + viewName + '\', \'holders\')">';
-            holders.forEach(holder => {
-                const selected = this.activeFilters.holders.includes(holder) ? 'selected' : '';
-                html += `<option value="${holder}" ${selected}>🟢 ${holder}</option>`;
-            });
-            html += '</select>';
-            holderFilterEl.innerHTML = html || '<p style="color: var(--text-muted); font-size: 0.85em;">No holders</p>';
+        // Holder checkboxes
+        const fpHol = document.getElementById(`${viewName}-fp-holders`);
+        if (fpHol) {
+            if (holders.length === 0) {
+                fpHol.innerHTML = '<span class="filter-pop-empty">No holders</span>';
+            } else {
+                fpHol.innerHTML = holders.map(h => {
+                    const checked = this.activeFilters.holders.includes(h) ? 'checked' : '';
+                    return `<label class="filter-pop-item">
+                        <input type="checkbox" ${checked}
+                            onchange="UI.onFilterCheckboxChange('${viewName}','holders','${h}',this.checked)">
+                        ${h}
+                    </label>`;
+                }).join('');
+            }
+        }
+
+        // Sync chips + badge
+        this.renderFilterChips(viewName);
+    },
+
+    /**
+     * Toggle filter popover open/closed
+     */
+    toggleFilterPopover: function(viewName) {
+        const pop = document.getElementById(`${viewName}-filter-popover`);
+        const btn = document.getElementById(`${viewName}-filter-btn`);
+        if (!pop) return;
+        const opening = !pop.classList.contains('open');
+        // Close all popovers first
+        ['overview', 'holdings', 'transactions'].forEach(v => {
+            const p = document.getElementById(`${v}-filter-popover`);
+            const b = document.getElementById(`${v}-filter-btn`);
+            if (p) p.classList.remove('open');
+            if (b) b.classList.remove('active');
+        });
+        if (opening) {
+            pop.classList.add('open');
+            if (btn) btn.classList.add('active');
         }
     },
-    
+
     /**
-     * Handle multi-select dropdown change
+     * Handle filter checkbox change
      */
-     onMultiSelectChange: function(viewName, filterType) {
-        const filterKey = filterType === 'accounts' ? 'account' : 'holder';
-        const selectEl = document.getElementById(`${viewName}-${filterKey}-select`);
-
-        if (!selectEl) return;
-
-        // Get selected values
-        const selected = Array.from(selectEl.selectedOptions).map(option => option.value);
-
-        // Update shared active filters
-        this.activeFilters[filterType] = selected;
-
-        // Update the label
-        const labelEl = document.getElementById(`${viewName}-${filterKey}-label`);
-        if (labelEl) {
-            const total = selectEl.options.length;
-            labelEl.textContent = selected.length === 0 ? 'All' : `${selected.length} of ${total} selected`;
+    onFilterCheckboxChange: function(viewName, filterType, value, checked) {
+        const arr = this.activeFilters[filterType];
+        if (checked) {
+            if (!arr.includes(value)) arr.push(value);
+        } else {
+            const idx = arr.indexOf(value);
+            if (idx >= 0) arr.splice(idx, 1);
         }
-
-        // Reload the view with new filters
+        this.renderFilterChips(viewName);
         this.loadViewData(viewName);
+    },
+
+    /**
+     * Remove a single active filter chip
+     */
+    removeFilter: function(filterType, value) {
+        const arr = this.activeFilters[filterType];
+        const idx = arr.indexOf(value);
+        if (idx >= 0) arr.splice(idx, 1);
+        // Uncheck the corresponding checkbox in any open popover
+        ['overview', 'holdings', 'transactions'].forEach(v => {
+            const pop = document.getElementById(`${v}-filter-popover`);
+            if (!pop) return;
+            pop.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+                const parent = cb.closest('label');
+                if (parent) {
+                    const onChange = cb.getAttribute('onchange') || '';
+                    if (onChange.includes(`'${filterType}'`) && onChange.includes(`'${value}'`)) {
+                        cb.checked = false;
+                    }
+                }
+            });
+            this.renderFilterChips(v);
+        });
+        this.loadViewData(this.currentView);
+    },
+
+    /**
+     * Render active filter chips for a view
+     */
+    renderFilterChips: function(viewName) {
+        const chipsEl = document.getElementById(`${viewName}-filter-chips`);
+        if (!chipsEl) return;
+
+        const data = (typeof Database !== 'undefined') ? Database.getData() : null;
+        let html = '';
+
+        this.activeFilters.accounts.forEach(accId => {
+            const acc = data && data.accounts ? data.accounts[accId] : null;
+            const label = acc ? acc.name : accId;
+            html += `<span class="filter-chip">${label}<button class="filter-chip-remove" onclick="UI.removeFilter('accounts','${accId}')" aria-label="Remove">×</button></span>`;
+        });
+
+        this.activeFilters.holders.forEach(holder => {
+            html += `<span class="filter-chip">${holder}<button class="filter-chip-remove" onclick="UI.removeFilter('holders','${holder}')" aria-label="Remove">×</button></span>`;
+        });
+
+        chipsEl.innerHTML = html;
+        this.updateFilterBadge(viewName);
+    },
+
+    /**
+     * Update the active filter count badge on the Filters button
+     */
+    updateFilterBadge: function(viewName) {
+        const badge = document.getElementById(`${viewName}-filter-badge`);
+        if (!badge) return;
+        const count = this.activeFilters.accounts.length + this.activeFilters.holders.length;
+        badge.textContent = count > 0 ? count : '';
     },
 
     /**
@@ -485,9 +549,9 @@ const UI = {
             }
 
             const priceAlert = !hasPerformanceData
-                ? `<div class="holding-alert holding-alert-price">⚠ Price unavailable — showing cost basis</div>` : '';
+                ? `<div class="holding-alert holding-alert-price">⚠ Price not loaded — click the refresh icon to fetch</div>` : '';
             const fxAlert = missingHistoricalFX
-                ? `<div class="holding-alert holding-alert-fx">⚠ Historical FX missing — cost basis may be inaccurate</div>` : '';
+                ? `<div class="holding-alert holding-alert-fx">⚠ Historical FX missing — cost basis may be inaccurate. Go to Admin → Fix Missing FX Rates</div>` : '';
 
             const displayValue = hasPerformanceData && perf.currentValueInBase !== null
                 ? this.formatCurrency(perf.currentValueInBase, baseCurrency)
@@ -1414,29 +1478,39 @@ const UI = {
     },
 
     /**
-     * Initialize filters system
+     * Initialize filters system — close popovers when clicking outside
      */
      initializeFilters: function() {
-        console.log('Initializing filters...');
+        document.addEventListener('click', (e) => {
+            ['overview', 'holdings', 'transactions'].forEach(v => {
+                const wrap = document.getElementById(`${v}-filter-wrap`);
+                if (wrap && !wrap.contains(e.target)) {
+                    const pop = document.getElementById(`${v}-filter-popover`);
+                    const btn = document.getElementById(`${v}-filter-btn`);
+                    if (pop) pop.classList.remove('open');
+                    if (btn) btn.classList.remove('active');
+                }
+            });
+        });
     },
 
     /**
-     * Clear all filters for a view
+     * Clear all filters
      */
      clearFilters: function(viewName) {
         this.activeFilters.accounts = [];
         this.activeFilters.holders = [];
-        
-        const accountSelect = document.getElementById(`${viewName}-account-select`);
-        const holderSelect = document.getElementById(`${viewName}-holder-select`);
-        
-        if (accountSelect) {
-            Array.from(accountSelect.options).forEach(option => option.selected = false);
-        }
-        if (holderSelect) {
-            Array.from(holderSelect.options).forEach(option => option.selected = false);
-        }
-        
+
+        // Uncheck all boxes in this view's popover
+        const pop = document.getElementById(`${viewName}-filter-popover`);
+        if (pop) pop.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = false);
+
+        // Close the popover
+        if (pop) pop.classList.remove('open');
+        const btn = document.getElementById(`${viewName}-filter-btn`);
+        if (btn) btn.classList.remove('active');
+
+        this.renderFilterChips(viewName);
         this.loadViewData(viewName);
     },
     
@@ -1563,13 +1637,13 @@ const UI = {
         }
         
         const viewName = this.savingFavoriteForView;
-        const filters = this.activeFilters[viewName];
-        
+        const filters = this.activeFilters; // shared flat filter state
+
         this.showLoading('Saving favorite...');
-        
+
         try {
-            const favoriteId = 'fav_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
-            
+            const favoriteId = 'fav_' + Date.now() + '_' + Math.random().toString(36).substring(2, 11);
+
             const favoriteData = {
                 id: favoriteId,
                 name: name,
@@ -1607,15 +1681,15 @@ const UI = {
         }
         
         const viewName = favorite.view;
-        
-        this.activeFilters[viewName] = {
-            accounts: [...favorite.filters.accounts],
-            holders: [...favorite.filters.holders]
-        };
-        
+
+        // Apply to shared filter state
+        this.activeFilters.accounts = [...favorite.filters.accounts];
+        this.activeFilters.holders = [...favorite.filters.holders];
+
         if (this.currentView !== viewName) {
             this.switchView(viewName);
         } else {
+            this.populateFilters(viewName);
             this.loadViewData(viewName);
         }
         

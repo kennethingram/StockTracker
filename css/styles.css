@@ -1154,71 +1154,173 @@ button {
    Filters Bar
    =================================== */
 
-.filters-bar {
+/* ===== Filter Bar (chip-based) ===== */
+
+.filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+
+.filter-bar-spacer { flex: 1; min-width: 4px; }
+
+/* Trigger button + popover container */
+.filter-trigger-wrap { position: relative; }
+
+.filter-trigger-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 14px;
   background: var(--bg-surface);
   border: 1px solid var(--border);
-  padding: 14px 18px;
-  border-radius: var(--radius-md);
-  margin-bottom: 10px;
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 16px;
+  border-radius: 20px;
+  color: var(--text-secondary);
+  font-size: 0.82em;
+  font-family: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: border-color 0.15s, color 0.15s;
 }
+.filter-trigger-btn:hover,
+.filter-trigger-btn.active { border-color: var(--accent); color: var(--accent); }
 
-.filter-section {
-  display: flex;
-  gap: 24px;
-  flex: 1;
-  flex-wrap: wrap;
+.filter-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  background: var(--accent);
+  color: #0d1117;
+  border-radius: 9px;
+  font-size: 0.7em;
+  font-weight: 700;
+  line-height: 1;
 }
+.filter-badge:empty { display: none; }
 
-.filter-group { min-width: 175px; }
+/* Dropdown popover */
+.filter-popover {
+  display: none;
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  min-width: 230px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.45);
+  z-index: 1000;
+  overflow: hidden;
+}
+.filter-popover.open { display: block; }
 
-.filter-group label {
-  display: block;
-  font-size: 0.72em;
-  font-weight: 600;
+.filter-pop-group { padding: 10px 14px 6px; }
+
+.filter-pop-label {
+  font-size: 0.68em;
+  font-weight: 700;
   color: var(--text-muted);
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.06em;
   margin-bottom: 6px;
 }
 
-.multi-select-dropdown {
-  width: 100%;
-  min-height: 88px;
-  padding: 6px;
-  background: var(--bg-elevated);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
+.filter-pop-sep { height: 1px; background: var(--border); }
+
+.filter-pop-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 0;
+  font-size: 0.84em;
   color: var(--text-primary);
-  font-size: 0.85em;
-  font-family: inherit;
   cursor: pointer;
 }
-
-.multi-select-dropdown:focus {
-  outline: none;
-  border-color: var(--accent);
+.filter-pop-item input[type="checkbox"] {
+  cursor: pointer;
+  accent-color: var(--accent);
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+}
+.filter-pop-empty {
+  font-size: 0.8em;
+  color: var(--text-muted);
+  padding: 4px 0;
 }
 
-.multi-select-dropdown option {
-  padding: 4px 6px;
-  background: var(--bg-elevated);
-  color: var(--text-primary);
-}
-
-.multi-select-dropdown option:checked {
-  background: var(--bg-elevated);
-  color: var(--accent);
-  font-weight: 600;
-}
-
-.filter-actions {
+.filter-pop-footer {
   display: flex;
-  flex-direction: column;
+  justify-content: space-between;
+  padding: 8px 14px 10px;
   gap: 8px;
+  border-top: 1px solid var(--border);
+  margin-top: 4px;
+}
+.filter-pop-clear {
+  background: none;
+  border: none;
+  font-size: 0.82em;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 0;
+  font-family: inherit;
+}
+.filter-pop-clear:hover { color: var(--negative); }
+.filter-pop-save {
+  background: none;
+  border: none;
+  font-size: 0.82em;
+  color: var(--accent);
+  cursor: pointer;
+  padding: 0;
+  font-weight: 600;
+  font-family: inherit;
+}
+.filter-pop-save:hover { opacity: 0.8; }
+
+/* Active filter chips */
+.filter-chips {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px 8px 4px 10px;
+  background: var(--accent-dim);
+  border: 1px solid rgba(20,184,166,0.3);
+  border-radius: 20px;
+  font-size: 0.78em;
+  color: var(--accent);
+  white-space: nowrap;
+}
+.filter-chip-remove {
+  background: none;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  padding: 0 0 0 2px;
+  font-size: 1.1em;
+  line-height: 1;
+  opacity: 0.6;
+}
+.filter-chip-remove:hover { opacity: 1; color: var(--negative); }
+
+/* Currency select in filter bar */
+.filter-bar .filter-currency-select {
+  padding: 5px 28px 5px 10px;
+  font-size: 0.82em;
+  border-radius: 20px;
+  min-height: unset;
 }
 
 /* ===================================
@@ -1473,15 +1575,19 @@ button {
     gap: 10px;
   }
 
-  /* Mobile holding cards: show all data in a 2-row card layout */
+  /* Mobile holdings header: show simplified 2-col (Stock | P/L) */
   .holdings-col-header,
   .holdings-col-header-detail {
-    display: none;
+    display: flex !important;
+    padding: 6px 14px;
   }
-
-  /* Hide desktop column headers on mobile */
-  .holdings-col-header,
-  .holdings-col-header-detail { display: none; }
+  /* Hide all header spans except first (Stock) and second (P/L) */
+  .holdings-col-header span:nth-child(n+3),
+  .holdings-col-header-detail span:nth-child(n+3) { display: none; }
+  .holdings-col-header span:first-child,
+  .holdings-col-header-detail span:first-child { flex: 1; }
+  .holdings-col-header span:nth-child(2),
+  .holdings-col-header-detail span:nth-child(2) { flex: 0 0 auto; }
 
   /* Reflow grid rows into flex cards */
   .holding-row,
@@ -1547,11 +1653,7 @@ button {
   .holding-acb::before      { content: "ACB ";  color: var(--text-muted); }
   .holding-cost::before     { content: "Cost "; color: var(--text-muted); }
 
-  .filters-bar { flex-direction: column; }
-  .filter-section { flex-direction: column; width: 100%; }
-  .filter-group { width: 100%; }
-  .filter-actions { flex-direction: row; }
-  .filter-actions button { flex: 1; }
+  .filter-bar { gap: 6px; }
 
   .sync-actions { flex-direction: column; }
   .sync-info { flex-direction: column; align-items: flex-start; }
@@ -1675,9 +1777,12 @@ button {
   .hamburger-btn { display: block; }
   .nav-menu { display: none; }
   .nav-actions .user-email { display: none; }
-  .nav-brand-name { display: none; }
   /* Profile dropdown opens upward on small screens to avoid cutoff */
   .profile-dropdown { right: 0; }
+  /* Filter bar: stack chips below button on very small screens */
+  .filter-bar-spacer { display: none; }
+  .filter-bar .filter-currency-select { flex: 1; min-width: 0; }
+  .filter-popover { min-width: 260px; }
 }
 
 /* ===================================
@@ -1815,16 +1920,6 @@ select option {
   padding: 6px 8px;
 }
 
-/* Currency filter in filters bar — styled to match filter height */
-.currency-filter-select {
-  width: 100%;
-  min-height: 36px;
-  padding: 7px 30px 7px 10px;
-}
-
-.filter-group-currency {
-  min-width: 200px;
-}
 
 /* Read-only input (e.g. auto-populated Broker in edit modal) */
 .input-readonly {
@@ -1949,10 +2044,4 @@ select option {
   text-align: right;
 }
 
-.filter-select-label {
-  font-size: 0.72em;
-  color: var(--text-muted);
-  margin-bottom: 4px;
-  font-style: italic;
-}
 

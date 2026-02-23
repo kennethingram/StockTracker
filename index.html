@@ -88,7 +88,6 @@
                     <button class="nav-btn" data-view="transactions">Transactions</button>
                     <button class="nav-btn" data-view="accounts">Accounts</button>
                     <button class="nav-btn" data-view="sync">Import</button>
-                    <button class="nav-btn" data-view="admin">Admin</button>
                     <button class="nav-btn" data-view="help">Help</button>
                 </div>
                 <div class="nav-actions">
@@ -142,7 +141,6 @@
                     <button class="nav-sidebar-btn" data-view="transactions">📋 Transactions</button>
                     <button class="nav-sidebar-btn" data-view="accounts">🏦 Accounts</button>
                     <button class="nav-sidebar-btn" data-view="sync">🔄 Import</button>
-                    <button class="nav-sidebar-btn" data-view="admin">⚙️ Admin</button>
                     <button class="nav-sidebar-btn" data-view="help">❓ Help</button>
                 </div>
                 <div class="nav-sidebar-footer">
@@ -171,43 +169,42 @@
                     <span id="price-update-status" class="price-status-inline"></span>
                     <span id="price-cache-info" style="display:none"></span>
 
-                    <!-- Filters Bar -->
-                    <div class="filters-bar">
-                        <div class="filter-section">
-                            <div class="filter-group">
-                                <label>Accounts</label>
-                                <div id="overview-account-filters" class="filter-checkboxes">
-                                    <!-- Populated by JS -->
+                    <!-- Filter Bar -->
+                    <div class="filter-bar">
+                        <div class="filter-trigger-wrap" id="overview-filter-wrap">
+                            <button class="filter-trigger-btn" id="overview-filter-btn" onclick="UI.toggleFilterPopover('overview')">
+                                Filters <span class="filter-badge" id="overview-filter-badge"></span>
+                            </button>
+                            <div class="filter-popover" id="overview-filter-popover">
+                                <div class="filter-pop-group">
+                                    <div class="filter-pop-label">Accounts</div>
+                                    <div id="overview-fp-accounts"></div>
+                                </div>
+                                <div class="filter-pop-sep"></div>
+                                <div class="filter-pop-group">
+                                    <div class="filter-pop-label">Holders</div>
+                                    <div id="overview-fp-holders"></div>
+                                </div>
+                                <div class="filter-pop-footer">
+                                    <button class="filter-pop-clear" onclick="UI.clearFilters('overview')">Clear all</button>
+                                    <button class="filter-pop-save" onclick="UI.showSaveFavoriteModal('overview')">Save view ★</button>
                                 </div>
                             </div>
-                            <div class="filter-group">
-                                <label>Account Holders</label>
-                                <div id="overview-holder-filters" class="filter-checkboxes">
-                                    <!-- Populated by JS -->
-                                </div>
-                            </div>
-                            <div class="filter-group filter-group-currency">
-                                <label>Display Currency</label>
-                                <select class="currency-filter-select" id="overview-currency-select" onchange="UI.changeOverviewCurrency(this.value)">
-                                    <option value="CAD">CAD — Canadian Dollar</option>
-                                    <option value="USD">USD — US Dollar</option>
-                                    <option value="GBP">GBP — British Pound</option>
-                                    <option value="EUR">EUR — Euro</option>
-                                    <option value="AUD">AUD — Australian Dollar</option>
-                                    <option value="CHF">CHF — Swiss Franc</option>
-                                </select>
-                            </div>
                         </div>
-                        <div class="filter-actions">
-                            <button class="btn-secondary btn-small" onclick="UI.clearFilters('overview')">Clear Filters</button>
-                            <button class="btn-primary btn-small" onclick="UI.showSaveFavoriteModal('overview')">💾 Save as Favorite</button>
-                        </div>
+                        <div class="filter-chips" id="overview-filter-chips"></div>
+                        <div class="filter-bar-spacer"></div>
+                        <select class="filter-currency-select" id="overview-currency-select" onchange="UI.changeOverviewCurrency(this.value)">
+                            <option value="CAD">CAD</option>
+                            <option value="USD">USD</option>
+                            <option value="GBP">GBP</option>
+                            <option value="EUR">EUR</option>
+                            <option value="AUD">AUD</option>
+                            <option value="CHF">CHF</option>
+                        </select>
                     </div>
 
                     <!-- Favorites Bar -->
-                    <div id="overview-favorites-bar" class="favorites-bar">
-                        <!-- Populated by JS -->
-                    </div>
+                    <div id="overview-favorites-bar" class="favorites-bar"></div>
 
                     <!-- Overview Cards -->
 
@@ -256,43 +253,42 @@
                 <div id="holdings-view" class="view">
                     <h1>Current Holdings</h1>
 
-                    <!-- Filters Bar -->
-                    <div class="filters-bar">
-                        <div class="filter-section">
-                            <div class="filter-group">
-                                <label>Accounts</label>
-                                <div id="holdings-account-filters" class="filter-checkboxes">
-                                    <!-- Populated by JS -->
+                    <!-- Filter Bar -->
+                    <div class="filter-bar">
+                        <div class="filter-trigger-wrap" id="holdings-filter-wrap">
+                            <button class="filter-trigger-btn" id="holdings-filter-btn" onclick="UI.toggleFilterPopover('holdings')">
+                                Filters <span class="filter-badge" id="holdings-filter-badge"></span>
+                            </button>
+                            <div class="filter-popover" id="holdings-filter-popover">
+                                <div class="filter-pop-group">
+                                    <div class="filter-pop-label">Accounts</div>
+                                    <div id="holdings-fp-accounts"></div>
+                                </div>
+                                <div class="filter-pop-sep"></div>
+                                <div class="filter-pop-group">
+                                    <div class="filter-pop-label">Holders</div>
+                                    <div id="holdings-fp-holders"></div>
+                                </div>
+                                <div class="filter-pop-footer">
+                                    <button class="filter-pop-clear" onclick="UI.clearFilters('holdings')">Clear all</button>
+                                    <button class="filter-pop-save" onclick="UI.showSaveFavoriteModal('holdings')">Save view ★</button>
                                 </div>
                             </div>
-                            <div class="filter-group">
-                                <label>Account Holders</label>
-                                <div id="holdings-holder-filters" class="filter-checkboxes">
-                                    <!-- Populated by JS -->
-                                </div>
-                            </div>
-                            <div class="filter-group filter-group-currency">
-                                <label>Display Currency</label>
-                                <select class="currency-filter-select" id="holdings-currency-select" onchange="UI.changeHoldingsCurrency(this.value)">
-                                    <option value="CAD">CAD — Canadian Dollar</option>
-                                    <option value="USD">USD — US Dollar</option>
-                                    <option value="GBP">GBP — British Pound</option>
-                                    <option value="EUR">EUR — Euro</option>
-                                    <option value="AUD">AUD — Australian Dollar</option>
-                                    <option value="CHF">CHF — Swiss Franc</option>
-                                </select>
-                            </div>
                         </div>
-                        <div class="filter-actions">
-                            <button class="btn-secondary btn-small" onclick="UI.clearFilters('holdings')">Clear Filters</button>
-                            <button class="btn-primary btn-small" onclick="UI.showSaveFavoriteModal('holdings')">💾 Save as Favorite</button>
-                        </div>
+                        <div class="filter-chips" id="holdings-filter-chips"></div>
+                        <div class="filter-bar-spacer"></div>
+                        <select class="filter-currency-select" id="holdings-currency-select" onchange="UI.changeHoldingsCurrency(this.value)">
+                            <option value="CAD">CAD</option>
+                            <option value="USD">USD</option>
+                            <option value="GBP">GBP</option>
+                            <option value="EUR">EUR</option>
+                            <option value="AUD">AUD</option>
+                            <option value="CHF">CHF</option>
+                        </select>
                     </div>
-                    
+
                     <!-- Favorites Bar -->
-                    <div id="holdings-favorites-bar" class="favorites-bar">
-                        <!-- Populated by JS -->
-                    </div>
+                    <div id="holdings-favorites-bar" class="favorites-bar"></div>
                     
                     <div id="holdings-list">
                         <p class="empty-state">No holdings yet.</p>
@@ -313,32 +309,33 @@
                         </h1>
                     </div>
 
-                     <!-- Filters Bar -->
-                    <div class="filters-bar">
-                        <div class="filter-section">
-                            <div class="filter-group">
-                                <label>Accounts</label>
-                                <div id="transactions-account-filters" class="filter-checkboxes">
-                                    <!-- Populated by JS -->
+                    <!-- Filter Bar -->
+                    <div class="filter-bar">
+                        <div class="filter-trigger-wrap" id="transactions-filter-wrap">
+                            <button class="filter-trigger-btn" id="transactions-filter-btn" onclick="UI.toggleFilterPopover('transactions')">
+                                Filters <span class="filter-badge" id="transactions-filter-badge"></span>
+                            </button>
+                            <div class="filter-popover" id="transactions-filter-popover">
+                                <div class="filter-pop-group">
+                                    <div class="filter-pop-label">Accounts</div>
+                                    <div id="transactions-fp-accounts"></div>
                                 </div>
-                            </div>
-                            <div class="filter-group">
-                                <label>Account Holders</label>
-                                <div id="transactions-holder-filters" class="filter-checkboxes">
-                                    <!-- Populated by JS -->
+                                <div class="filter-pop-sep"></div>
+                                <div class="filter-pop-group">
+                                    <div class="filter-pop-label">Holders</div>
+                                    <div id="transactions-fp-holders"></div>
+                                </div>
+                                <div class="filter-pop-footer">
+                                    <button class="filter-pop-clear" onclick="UI.clearFilters('transactions')">Clear all</button>
+                                    <button class="filter-pop-save" onclick="UI.showSaveFavoriteModal('transactions')">Save view ★</button>
                                 </div>
                             </div>
                         </div>
-                        <div class="filter-actions">
-                            <button class="btn-secondary btn-small" onclick="UI.clearFilters('transactions')">Clear Filters</button>
-                            <button class="btn-primary btn-small" onclick="UI.showSaveFavoriteModal('transactions')">💾 Save as Favorite</button>
-                        </div>
+                        <div class="filter-chips" id="transactions-filter-chips"></div>
                     </div>
-                    
+
                     <!-- Favorites Bar -->
-                    <div id="transactions-favorites-bar" class="favorites-bar">
-                        <!-- Populated by JS -->
-                    </div>
+                    <div id="transactions-favorites-bar" class="favorites-bar"></div>
                     
                     <div id="transactions-list">
                         <p class="empty-state">No transactions yet.</p>
