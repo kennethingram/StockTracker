@@ -19,28 +19,13 @@ const Parser = {
             console.log('Downloading PDF...');
             const pdfBlob = await Drive.downloadFile(fileId);
             
-            // Step 2: Extract text from PDF
-            console.log('Extracting text from PDF...');
-            const pdfText = await this.extractTextFromPDF(pdfBlob);
-            
-            console.log('Extracted text length:', pdfText.length, 'characters');
-            
+            // Step 2: Always use Vision API — sends the PDF directly so Gemini
+            // sees the visual layout. Text extraction (PDF.js) strips layout context
+            // and causes field mapping errors (e.g. accountLast4 / contractNoteNo swapped).
+            console.log('Using Vision API for reliable field extraction...');
+
             // Step 3: Parse the transaction data
-            let transactions;
-            
-            // Check if PDF has text or is image-based
-            const hasText = pdfText && pdfText.trim().length > 100 && 
-                           !pdfText.includes('NO TEXT EXTRACTED');
-            
-            if (hasText) {
-                // Text-based PDF - use regular parsing
-                console.log('PDF has text layer - using text parsing...');
-                transactions = await this.parseTransactionData(pdfText, fileName);
-            } else {
-                // Image-based PDF - use Gemini Vision
-                console.log('PDF appears to be image-based - using Vision API...');
-                transactions = await this.parseImagePDF(pdfBlob, fileName);
-            }
+            const transactions = await this.parseImagePDF(pdfBlob, fileName);
             
             // Step 4: Save all validated transactions to database
             console.log(`Saving ${transactions.length} transaction(s)...`);
@@ -843,17 +828,10 @@ IMPORTANT:
     extractTransactionsFromFile: async function(fileId, fileName) {
         try {
             const pdfBlob = await Drive.downloadFile(fileId);
-            const pdfText = await this.extractTextFromPDF(pdfBlob);
-            const hasText = pdfText && pdfText.trim().length > 100 &&
-                            !pdfText.includes('NO TEXT EXTRACTED');
 
-            let result;
-            if (hasText) {
-                result = await this.callGeminiAPI(pdfText, fileName);
-            } else {
-                const base64Data = await this.convertPDFToImage(pdfBlob);
-                result = await this.callGeminiVisionAPI(base64Data, fileName);
-            }
+            // Always use Vision API — preserves visual layout for reliable field extraction
+            const base64Data = await this.convertPDFToImage(pdfBlob);
+            const result = await this.callGeminiVisionAPI(base64Data, fileName);
 
             if (!result || !result.transactions || result.transactions.length === 0) {
                 throw new Error('No transactions extracted');
@@ -863,7 +841,7 @@ IMPORTANT:
                 fileId,
                 fileName,
                 transactions: result.transactions,
-                sourceText: hasText ? pdfText : 'Image-based PDF'
+                sourceText: 'PDF (Vision)'
             };
         } catch (error) {
             console.error(`Failed to extract from ${fileName}:`, error);
