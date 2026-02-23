@@ -510,7 +510,7 @@ const UI = {
         const listEl = document.getElementById('recent-transactions-list');
 
         if (!holdings || holdings.length === 0) {
-            listEl.innerHTML = '<p class="empty-state">No holdings yet.</p>';
+            listEl.innerHTML = '<p class="empty-state">No holdings yet. Go to <strong>Import</strong> to process contract notes.</p>';
             return;
         }
 
@@ -673,7 +673,7 @@ const UI = {
         const listEl = document.getElementById('holdings-list');
 
         if (holdings.length === 0) {
-            listEl.innerHTML = '<p class="empty-state">No holdings yet.</p>';
+            listEl.innerHTML = '<p class="empty-state">No holdings yet. Go to <strong>Import</strong> to process contract notes.</p>';
             return;
         }
 

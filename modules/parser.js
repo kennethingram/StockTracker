@@ -333,7 +333,7 @@ Extract the following information and return ONLY valid JSON (no markdown, no ex
 {
   "transactions": [
     {
-      "contractReference": "contract note number or contract reference from the document — look for labels like 'Contract Note No.', 'Contract Number', 'Contract Ref'; not stock identifiers or ISIN",
+      "contractReference": "the unique reference number for this contract note document — ONLY use labels explicitly related to the contract itself, such as 'Contract Note No.', 'Contract Note Number', 'Contract Number', 'Contract Ref', 'Contract Reference', 'Reference No.' on the contract header. Do NOT use stock codes, stock references, ISIN codes, sedol codes, ticker symbols, or any identifier related to the security being traded. If no contract-level reference is present, return null.",
       "date": "YYYY-MM-DD format",
       "settlementDate": "YYYY-MM-DD format if available, otherwise same as date",
       "type": "buy or sell",
@@ -522,7 +522,7 @@ Extract the following information and return ONLY valid JSON (no markdown, no ex
 {
   "transactions": [
     {
-      "contractReference": "contract/trade reference number from the document",
+      "contractReference": "the unique reference number for this contract note document — ONLY use labels explicitly related to the contract itself, such as 'Contract Note No.', 'Contract Note Number', 'Contract Number', 'Contract Ref', 'Contract Reference'. Do NOT use stock codes, stock references, ISIN codes, sedol codes, ticker symbols, or any identifier related to the security being traded. If no contract-level reference is present, return null.",
       "date": "YYYY-MM-DD format",
       "settlementDate": "YYYY-MM-DD format if available, otherwise same as date",
       "type": "buy or sell",
