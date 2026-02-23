@@ -338,7 +338,7 @@ Extract the following information and return ONLY valid JSON (no markdown, no ex
       "settlementDate": "YYYY-MM-DD format if available, otherwise same as date",
       "type": "buy or sell",
       "symbol": "stock ticker symbol (e.g. AAPL, LGEN, RY)",
-      "isin": "ISIN code for the security — extract directly from the contract note if present (12-character alphanumeric, e.g. GB0002073146); otherwise infer from the ticker and exchange",
+      "isin": "ISIN code — ALWAYS attempt to provide this. Priority: (1) extract from the contract note if present; (2) use your training knowledge — you know the ISIN for most publicly listed companies from ticker + exchange (e.g. LGEN on LSE = GB0002073146, AAPL = US0378331005, RY on TSX = CA7800871021, VOD on LSE = GB00BH4HKS39); (3) infer from company name + country alone if no ticker/exchange. Structure is 2-letter country code + 9-char alphanumeric + 1 check digit. Only return null if you have genuinely no basis to determine it.",
       "company": "company name",
       "quantity": number,
       "price": number (price per share as shown on the contract note),
@@ -361,7 +361,7 @@ IMPORTANT:
 - "currency" MUST be the settlement currency (the currency in which the total amount was actually paid), always a 3-letter code (USD, CAD, GBP, EUR, AUD, CHF)
 - "priceCurrency" must be a 3-letter code: USD, CAD, GBP, GBX, EUR, AUD, CHF
 - "feesCurrency" must be a 3-letter code: USD, CAD, GBP, EUR, AUD, CHF
-- "isin" must be a 12-character alphanumeric code or null if cannot be determined
+- "isin" must be a 12-character alphanumeric code — use your knowledge to infer it even when not on the document; only null as last resort
 - Type must be exactly "buy" or "sell"`;
 
         const requestBody = {
