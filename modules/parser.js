@@ -1024,8 +1024,8 @@ IMPORTANT:
                 const accounts = Object.values(data.accounts || {});
 
                 if (accounts.length === 0) {
-                    alert('⚠️ No accounts found! Please create at least one account in the Accounts tab first.');
                     modal.remove();
+                    UI.showMessage('No accounts found. Please create at least one account in the Accounts tab first.', 'error');
                     resolve(null);
                     return;
                 }
@@ -1102,7 +1102,7 @@ IMPORTANT:
 
             const accountId = document.getElementById(`account-${index}`).value;
             if (!accountId) {
-                alert(`Transaction ${index + 1}: Please select an account before saving.`);
+                UI.showMessage(`Transaction ${index + 1}: Please select an account before saving.`, 'error');
                 allValid = false;
                 return;
             }
@@ -1134,7 +1134,7 @@ IMPORTANT:
         });
 
         if (acceptedItems.length === 0) {
-            alert('No transactions accepted. Please accept at least one or click Cancel.');
+            UI.showMessage('No transactions accepted. Please accept at least one row or click Cancel.', 'warning');
             return;
         }
         if (!allValid) return;
@@ -1396,8 +1396,8 @@ IMPORTANT:
             
             // Check if any accounts exist
             if (accounts.length === 0) {
-                alert('⚠️ No accounts found! Please create at least one account in the Accounts tab before processing contract notes.');
                 modal.remove();
+                UI.showMessage('No accounts found. Please create at least one account in the Accounts tab before processing contract notes.', 'error');
                 reject(new Error('No accounts available'));
                 return;
             }
@@ -1526,7 +1526,7 @@ IMPORTANT:
                 
                 // Validate account is selected
                 if (!accountId) {
-                    alert(`Transaction ${index + 1}: Please select an account before saving.`);
+                    UI.showMessage(`Transaction ${index + 1}: Please select an account before saving.`, 'error');
                     allValid = false;
                     return;
                 }
@@ -1558,20 +1558,14 @@ IMPORTANT:
         });
         
         if (acceptedTransactions.length === 0) {
-            alert('No transactions accepted. Please accept at least one transaction or click Cancel.');
+            UI.showMessage('No transactions accepted. Please accept at least one row or click Cancel.', 'warning');
             return;
         }
-        
-       console.log('Accepted transactions:', acceptedTransactions);
+
+        console.log('Accepted transactions:', acceptedTransactions);
         console.log('Total accepted:', acceptedTransactions.length);
-        
-        // Check if validation failed
+
         if (!allValid) {
-            return;
-        }
-        
-        if (acceptedTransactions.length === 0) {
-            alert('No transactions accepted. Please accept at least one transaction or click Cancel.');
             return;
         }
         
