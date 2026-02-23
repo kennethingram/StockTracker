@@ -147,6 +147,22 @@ const Database = {
                 this.data.fxRates = {};
             }
 
+            // Migrate legacy field name: contractReference → contractNoteNo
+            if (this.data.transactions) {
+                let migrated = 0;
+                this.data.transactions.forEach(t => {
+                    if ('contractReference' in t) {
+                        t.contractNoteNo = t.contractNoteNo || t.contractReference;
+                        delete t.contractReference;
+                        migrated++;
+                    }
+                });
+                if (migrated > 0) {
+                    console.log(`Migrated ${migrated} transaction(s): contractReference → contractNoteNo`);
+                    this.saveToDrive(); // persist the rename to Drive silently
+                }
+            }
+
             console.log('Database loaded:', this.data);
         } else if (response.status === 401) {
             if (typeof Auth !== 'undefined') Auth.handleTokenExpired();
