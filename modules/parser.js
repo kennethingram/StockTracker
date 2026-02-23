@@ -341,8 +341,10 @@ Extract the following information and return ONLY valid JSON (no markdown, no ex
       "company": "company name",
       "quantity": number,
       "price": number (price per share as shown on the contract note),
+      "priceCurrency": "3-letter currency code for the price per share — infer from the exchange or how the price is shown on the contract note (e.g. LSE stocks often quote in GBX/pence; NYSE/NASDAQ → USD; TSX → CAD; XETRA → EUR; ASX → AUD). If the symbol already makes the exchange clear (e.g. AAPL = NYSE = USD), use that.",
       "currency": "3-letter settlement currency code — the currency in which the TOTAL was paid, exactly as stated on the contract note",
       "fees": number (commission/fees as shown),
+      "feesCurrency": "3-letter currency code for the commission/fees — as stated on the contract note; use the settlement currency if fees currency is not separately specified",
       "total": number (total settlement amount — the actual amount debited/credited to the account),
       "accountLast4": "last 4 digits of account number if present"
     }
@@ -356,6 +358,8 @@ IMPORTANT:
 - Use null if a field cannot be determined
 - Ensure all numbers are actual numbers, not strings
 - "currency" MUST be the settlement currency (the currency in which the total amount was actually paid), always a 3-letter code (USD, CAD, GBP, EUR, AUD, CHF)
+- "priceCurrency" must be a 3-letter code: USD, CAD, GBP, GBX, EUR, AUD, CHF
+- "feesCurrency" must be a 3-letter code: USD, CAD, GBP, EUR, AUD, CHF
 - Type must be exactly "buy" or "sell"`;
 
         const requestBody = {
@@ -875,7 +879,7 @@ IMPORTANT:
             for (const fr of fileResults) {
                 bodyRows += `
                     <tr class="review-file-row">
-                        <td colspan="14">📄 ${fr.fileName}</td>
+                        <td colspan="16">📄 ${fr.fileName}</td>
                     </tr>`;
 
                 for (const txn of fr.transactions) {
@@ -929,8 +933,22 @@ IMPORTANT:
                             <td class="review-table-td" style="min-width:85px;">
                                 <input type="number" id="price-${globalIndex}" value="${txn.price || ''}" step="0.0001" class="review-input" style="width:85px;">
                             </td>
+                            <td class="review-table-td" style="min-width:65px;">
+                                <select id="priceCurrency-${globalIndex}" class="review-select" style="width:65px;">
+                                    ${['USD','CAD','GBP','GBX','EUR','AUD','CHF'].map(c =>
+                                        `<option value="${c}" ${(txn.priceCurrency || txn.currency) === c ? 'selected' : ''}>${c}</option>`
+                                    ).join('')}
+                                </select>
+                            </td>
                             <td class="review-table-td" style="min-width:75px;">
                                 <input type="number" id="fees-${globalIndex}" value="${txn.fees || 0}" step="0.01" class="review-input" style="width:75px;">
+                            </td>
+                            <td class="review-table-td" style="min-width:65px;">
+                                <select id="feesCurrency-${globalIndex}" class="review-select" style="width:65px;">
+                                    ${CONFIG.supportedCurrencies.filter(c => c.code !== 'GBX').map(c =>
+                                        `<option value="${c.code}" ${(txn.feesCurrency || txn.currency) === c.code ? 'selected' : ''}>${c.code}</option>`
+                                    ).join('')}
+                                </select>
                             </td>
                             <td class="review-table-td" style="min-width:95px;">
                                 <input type="number" id="total-${globalIndex}" value="${txn.total || ''}" step="0.01" class="review-input" style="width:95px;">
@@ -983,7 +1001,9 @@ IMPORTANT:
                                         <th>Exchange</th>
                                         <th>Qty</th>
                                         <th>Price</th>
+                                        <th>Price Ccy</th>
                                         <th>Fees</th>
+                                        <th>Fees Ccy</th>
                                         <th>Total</th>
                                         <th>Settlement Ccy</th>
                                         <th>Actions</th>
@@ -1107,8 +1127,10 @@ IMPORTANT:
                              document.getElementById(`symbol-${index}`).value.toUpperCase(),
                     quantity: parseFloat(document.getElementById(`quantity-${index}`).value),
                     price: parseFloat(document.getElementById(`price-${index}`).value),
+                    priceCurrency: document.getElementById(`priceCurrency-${index}`).value,
                     currency: document.getElementById(`currency-${index}`).value,
                     fees: parseFloat(document.getElementById(`fees-${index}`).value) || 0,
+                    feesCurrency: document.getElementById(`feesCurrency-${index}`).value,
                     total: parseFloat(document.getElementById(`total-${index}`).value),
                     settlementDate: modal.transactions[index].settlementDate ||
                                     document.getElementById(`date-${index}`).value,
@@ -1230,7 +1252,9 @@ IMPORTANT:
                         <th>Exchange</th>
                         <th>Quantity</th>
                         <th>Price</th>
+                        <th>Price Ccy</th>
                         <th>Fees</th>
+                        <th>Fees Ccy</th>
                         <th>Total</th>
                         <th>Settlement Ccy</th>
                         <th>Actions</th>
@@ -1287,8 +1311,22 @@ IMPORTANT:
                     <td class="review-table-td" style="min-width:85px;">
                         <input type="number" id="price-${index}" value="${txn.price || ''}" step="0.01" class="review-input" style="width:85px;">
                     </td>
+                    <td class="review-table-td" style="min-width:65px;">
+                        <select id="priceCurrency-${index}" class="review-select" style="width:65px;">
+                            ${['USD','CAD','GBP','GBX','EUR','AUD','CHF'].map(c =>
+                                `<option value="${c}" ${(txn.priceCurrency || txn.currency) === c ? 'selected' : ''}>${c}</option>`
+                            ).join('')}
+                        </select>
+                    </td>
                     <td class="review-table-td" style="min-width:75px;">
                         <input type="number" id="fees-${index}" value="${txn.fees || 0}" step="0.01" class="review-input" style="width:75px;">
+                    </td>
+                    <td class="review-table-td" style="min-width:65px;">
+                        <select id="feesCurrency-${index}" class="review-select" style="width:65px;">
+                            ${CONFIG.supportedCurrencies.filter(c => c.code !== 'GBX').map(c =>
+                                `<option value="${c.code}" ${(txn.feesCurrency || txn.currency) === c.code ? 'selected' : ''}>${c.code}</option>`
+                            ).join('')}
+                        </select>
                     </td>
                     <td class="review-table-td" style="min-width:95px;">
                         <input type="number" id="total-${index}" value="${txn.total || ''}" step="0.01" class="review-input" style="width:95px;">
@@ -1509,8 +1547,10 @@ IMPORTANT:
                     company: modal.transactions[index].company || document.getElementById(`symbol-${index}`).value,
                     quantity: parseFloat(document.getElementById(`quantity-${index}`).value),
                     price: parseFloat(document.getElementById(`price-${index}`).value),
+                    priceCurrency: document.getElementById(`priceCurrency-${index}`).value,
                     currency: document.getElementById(`currency-${index}`).value,
                     fees: parseFloat(document.getElementById(`fees-${index}`).value) || 0,
+                    feesCurrency: document.getElementById(`feesCurrency-${index}`).value,
                     total: parseFloat(document.getElementById(`total-${index}`).value),
                     settlementDate: modal.transactions[index].settlementDate || document.getElementById(`date-${index}`).value,
                     accountLast4: modal.transactions[index].accountLast4,

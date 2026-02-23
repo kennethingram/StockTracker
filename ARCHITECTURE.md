@@ -1,6 +1,6 @@
 # Stock Portfolio Tracker — Architecture
 
-**Last Updated:** February 22, 2026
+**Last Updated:** February 23, 2026
 
 ---
 
@@ -151,8 +151,10 @@
       date: "2025-09-03",
       quantity: 9000,
       price: 2.33,
-      currency: "GBP",
+      priceCurrency: "GBX",   // currency of price per share (display only; may differ from settlement)
+      currency: "GBP",        // settlement currency — drives ACB and FX conversion
       fees: 12.50,
+      feesCurrency: "GBP",    // currency of commission/fees (display only)
       total: 21071.91,
       accountId: "accountId",
       broker: "Hargreaves Lansdown",

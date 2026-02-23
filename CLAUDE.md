@@ -35,7 +35,8 @@ A personal stock portfolio tracker. Client-side SPA (single-page app), no backen
 - **Database** is a single JSON file on the user's Google Drive: `/StockTracker/stock-tracker-database.json`.
 - **FX rates:** Historical rates are fetched and stored at transaction time (cost basis is locked). Live rates are cached for 1 hour.
 - **Price cache:** 15 minutes.
-- **Supported currencies:** CAD, USD, GBP, EUR, AUD, CHF. INR not supported (frankfurter.app limitation).
+- **Supported currencies:** CAD, USD, GBP, GBX, EUR, AUD, CHF. GBX (British Pence) is display-only — never used for FX or ACB calculations. INR not supported (frankfurter.app limitation).
+- **Currency fields per transaction:** `currency` (settlement — drives ACB/FX), `priceCurrency` (price per share display only), `feesCurrency` (fees display only). All calculations use `currency` only.
 
 ## Data Shape (simplified)
 
@@ -58,9 +59,6 @@ Complete and working for personal use:
 - Portfolio dashboard, holdings, transactions, accounts views
 
 **Open items (from [BACKLOG.md](BACKLOG.md)):**
-1. Backend proxy for API keys (needed for safe public deployment)
-2. Transaction editing (currently delete-only)
-3. Batch PDF processing
-4. Data export (CSV/Excel/JSON)
-5. Charts and analytics
-6. INR currency support
+1. Batch PDF processing
+2. Portfolio charts and analytics
+3. INR currency support

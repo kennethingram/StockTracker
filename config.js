@@ -60,6 +60,7 @@ const CONFIG = {
         { code: 'USD', symbol: '$', name: 'US Dollar' },
         { code: 'CAD', symbol: 'C$', name: 'Canadian Dollar' },
         { code: 'GBP', symbol: '£', name: 'British Pound' },
+        { code: 'GBX', symbol: 'p', name: 'British Pence (GBX)' },
         { code: 'EUR', symbol: '€', name: 'Euro' },
         { code: 'INR', symbol: '₹', name: 'Indian Rupee' },
         { code: 'JPY', symbol: '¥', name: 'Japanese Yen' },

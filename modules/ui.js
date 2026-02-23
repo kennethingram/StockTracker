@@ -804,8 +804,8 @@ const UI = {
             html += `<td class="muted col-mob-hide">${txn.exchange || '—'}</td>`;
             html += `<td><span class="${badgeClass}">${txn.type.toUpperCase()}</span></td>`;
             html += `<td class="right">${txn.quantity}</td>`;
-            html += `<td class="right col-mob-hide">${this.formatCurrency(txn.price, txn.currency)}</td>`;
-            html += `<td class="right muted col-mob-hide">${this.formatCurrency(txn.fees || 0, txn.currency)}</td>`;
+            html += `<td class="right col-mob-hide">${this.formatCurrency(txn.price, txn.priceCurrency || txn.currency)}</td>`;
+            html += `<td class="right muted col-mob-hide">${this.formatCurrency(txn.fees || 0, txn.feesCurrency || txn.currency)}</td>`;
             html += `<td class="right bold col-mob-hide">${this.formatCurrency(txn.total, txn.currency)}</td>`;
             html += `<td class="right bold col-mob-only">${this.formatCurrency(cost, txn.currency)}</td>`;
             html += `<td class="muted col-mob-hide">${accountLabel}</td>`;
@@ -1885,7 +1885,7 @@ const UI = {
         document.getElementById('edit-txn-total').value = txn.total || '';
         document.getElementById('edit-txn-broker').value = txn.broker || '';
 
-        // Currency dropdown
+        // Settlement currency dropdown
         const currencySelect = document.getElementById('edit-txn-currency');
         currencySelect.innerHTML = '';
         (CONFIG.supportedCurrencies || []).forEach(c => {
@@ -1894,6 +1894,28 @@ const UI = {
             opt.textContent = `${c.code} — ${c.name}`;
             if (c.code === txn.currency) opt.selected = true;
             currencySelect.appendChild(opt);
+        });
+
+        // Price currency dropdown (includes GBX)
+        const priceCurrencySelect = document.getElementById('edit-txn-price-currency');
+        priceCurrencySelect.innerHTML = '';
+        ['USD','CAD','GBP','GBX','EUR','AUD','CHF'].forEach(code => {
+            const opt = document.createElement('option');
+            opt.value = code;
+            opt.textContent = code;
+            if (code === (txn.priceCurrency || txn.currency)) opt.selected = true;
+            priceCurrencySelect.appendChild(opt);
+        });
+
+        // Fees currency dropdown (no GBX)
+        const feesCurrencySelect = document.getElementById('edit-txn-fees-currency');
+        feesCurrencySelect.innerHTML = '';
+        (CONFIG.supportedCurrencies || []).filter(c => c.code !== 'GBX').forEach(c => {
+            const opt = document.createElement('option');
+            opt.value = c.code;
+            opt.textContent = c.code;
+            if (c.code === (txn.feesCurrency || txn.currency)) opt.selected = true;
+            feesCurrencySelect.appendChild(opt);
         });
 
         // Account dropdown — built from Database accounts
@@ -1940,9 +1962,11 @@ const UI = {
             exchange: document.getElementById('edit-txn-exchange').value.trim().toUpperCase(),
             type:     document.getElementById('edit-txn-type').value,
             quantity: parseFloat(document.getElementById('edit-txn-quantity').value) || 0,
-            currency: document.getElementById('edit-txn-currency').value,
-            price:    parseFloat(document.getElementById('edit-txn-price').value) || 0,
-            fees:     parseFloat(document.getElementById('edit-txn-fees').value) || 0,
+            currency:      document.getElementById('edit-txn-currency').value,
+            price:         parseFloat(document.getElementById('edit-txn-price').value) || 0,
+            priceCurrency: document.getElementById('edit-txn-price-currency').value,
+            fees:          parseFloat(document.getElementById('edit-txn-fees').value) || 0,
+            feesCurrency:  document.getElementById('edit-txn-fees-currency').value,
             total:    parseFloat(document.getElementById('edit-txn-total').value) || 0,
             accountId: document.getElementById('edit-txn-account').value || null,
             broker:   document.getElementById('edit-txn-broker').value.trim(),

@@ -58,6 +58,22 @@ Priority levels: 🔴 High | 🟡 Medium | 🟢 Low
 
 ---
 
+### Price Currency & Fees Currency Fields ✅
+**Status:** Complete (v1.3)
+**Completed:** February 2026
+
+**What was delivered:**
+- `priceCurrency` field on each transaction — the currency the price per share is quoted in (e.g. GBX for LSE pence-quoted stocks)
+- `feesCurrency` field on each transaction — the currency of commission/fees
+- Both fields auto-populated by Gemini from exchange context and contract note
+- User-editable dropdowns in Review & Validate modal (after Price and Fees columns)
+- Displayed correctly in Transaction view (price shows in priceCurrency, fees in feesCurrency)
+- Edit transaction modal includes priceCurrency and feesCurrency selects
+- GBX (British Pence) added to supported display currencies with `p` symbol
+- Falls back to settlement currency for existing transactions that predate this feature
+
+---
+
 ### Data Export ✅
 **Status:** Complete (v1.2)
 **Completed:** February 2026
@@ -310,4 +326,4 @@ Priority levels: 🔴 High | 🟡 Medium | 🟢 Low
 
 ---
 
-**Last Updated:** February 22, 2026
+**Last Updated:** February 23, 2026
