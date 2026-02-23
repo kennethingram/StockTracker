@@ -333,7 +333,7 @@ Extract the following information and return ONLY valid JSON (no markdown, no ex
 {
   "transactions": [
     {
-      "contractReference": "contract note number or contract reference from the document — look for labels like 'Contract Note No.', 'Contract Number', 'Contract Ref', 'Deal Reference', not stock identifiers or ISIN",
+      "contractReference": "contract note number or contract reference from the document — look for labels like 'Contract Note No.', 'Contract Number', 'Contract Ref'; not stock identifiers or ISIN",
       "date": "YYYY-MM-DD format",
       "settlementDate": "YYYY-MM-DD format if available, otherwise same as date",
       "type": "buy or sell",
@@ -344,7 +344,7 @@ Extract the following information and return ONLY valid JSON (no markdown, no ex
       "price": number (price per share as shown on the contract note),
       "priceCurrency": "3-letter currency code for the price per share — infer from the exchange or how the price is shown on the contract note (e.g. LSE stocks often quote in GBX/pence; NYSE/NASDAQ → USD; TSX → CAD; XETRA → EUR; ASX → AUD). If the symbol already makes the exchange clear (e.g. AAPL = NYSE = USD), use that.",
       "currency": "3-letter settlement currency code — the currency in which the TOTAL was paid, exactly as stated on the contract note",
-      "fees": number (SUM of ALL fees and charges — add together commission, stamp duty, PTM levy, credit notes, and any other charges or deductions shown on the contract note into a single total fees figure),
+      "fees": number (everything charged BEYOND Quantity × Price — the difference between the gross consideration and the net settlement total; includes commission, stamp duty, PTM levy, and any other charges or deductions; sum them all into one figure),
       "feesCurrency": "3-letter currency code for the commission/fees — as stated on the contract note; use the settlement currency if fees currency is not separately specified",
       "total": number (total settlement amount — the actual amount debited/credited to the account),
       "accountLast4": "last 4 digits of account number if present"
