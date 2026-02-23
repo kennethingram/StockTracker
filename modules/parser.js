@@ -333,7 +333,7 @@ Extract the following information and return ONLY valid JSON (no markdown, no ex
 {
   "transactions": [
     {
-      "contractReference": "the unique reference number for this contract note document — ONLY use labels explicitly related to the contract itself, such as 'Contract Note No.', 'Contract Note Number', 'Contract Number', 'Contract Ref', 'Contract Reference', 'Reference No.' on the contract header. Do NOT use stock codes, stock references, ISIN codes, sedol codes, ticker symbols, or any identifier related to the security being traded. If no contract-level reference is present, return null.",
+      "contractNoteNo": "the unique reference number for this contract note document — ONLY use labels explicitly related to the contract itself, such as 'Contract Note No.', 'Contract Note Number', 'Contract Number', 'Contract Ref', 'Contract Reference', 'Reference No.' on the contract header. Do NOT use stock codes, stock references, ISIN codes, sedol codes, ticker symbols, or any identifier related to the security being traded. If no contract-level reference is present, return null.",
       "date": "YYYY-MM-DD format",
       "settlementDate": "YYYY-MM-DD format if available, otherwise same as date",
       "type": "buy or sell",
@@ -354,7 +354,7 @@ Extract the following information and return ONLY valid JSON (no markdown, no ex
 
 IMPORTANT:
 - If there are MULTIPLE transactions in the contract note, include ALL of them in the transactions array
-- Each transaction should have its own contractReference if available
+- Each transaction should have its own contractNoteNo if available
 - Return ONLY the JSON object, nothing else
 - Use null if a field cannot be determined
 - Ensure all numbers are actual numbers, not strings
@@ -522,7 +522,7 @@ Extract the following information and return ONLY valid JSON (no markdown, no ex
 {
   "transactions": [
     {
-      "contractReference": "the unique reference number for this contract note document — ONLY use labels explicitly related to the contract itself, such as 'Contract Note No.', 'Contract Note Number', 'Contract Number', 'Contract Ref', 'Contract Reference'. Do NOT use stock codes, stock references, ISIN codes, sedol codes, ticker symbols, or any identifier related to the security being traded. If no contract-level reference is present, return null.",
+      "contractNoteNo": "the unique reference number for this contract note document — ONLY use labels explicitly related to the contract itself, such as 'Contract Note No.', 'Contract Note Number', 'Contract Number', 'Contract Ref', 'Contract Reference'. Do NOT use stock codes, stock references, ISIN codes, sedol codes, ticker symbols, or any identifier related to the security being traded. If no contract-level reference is present, return null.",
       "date": "YYYY-MM-DD format",
       "settlementDate": "YYYY-MM-DD format if available, otherwise same as date",
       "type": "buy or sell",
@@ -540,7 +540,7 @@ Extract the following information and return ONLY valid JSON (no markdown, no ex
 
 IMPORTANT:
 - If there are MULTIPLE transactions, include ALL of them in the transactions array
-- Each transaction should have its own contractReference if available
+- Each transaction should have its own contractNoteNo if available
 - Return ONLY the JSON object, nothing else
 - Use null if a field cannot be determined
 - Ensure all numbers are actual numbers, not strings
@@ -903,7 +903,7 @@ IMPORTANT:
                                 ${txn.accountLast4 ? '****' + txn.accountLast4 : 'N/A'}
                             </td>
                             <td class="review-table-td" style="min-width:90px;">
-                                <input type="text" id="contractRef-${globalIndex}" value="${txn.contractReference || ''}" class="review-input">
+                                <input type="text" id="contractNoteNo-${globalIndex}" value="${txn.contractNoteNo || ''}" class="review-input">
                             </td>
                             <td class="review-table-td" style="min-width:120px;">
                                 <input type="date" id="date-${globalIndex}" value="${txn.date || ''}" class="review-input">
@@ -1124,7 +1124,7 @@ IMPORTANT:
             acceptedItems.push({
                 txn: {
                     accountId,
-                    contractReference: document.getElementById(`contractRef-${index}`).value,
+                    contractNoteNo: document.getElementById(`contractNoteNo-${index}`).value,
                     date: document.getElementById(`date-${index}`).value,
                     type: document.getElementById(`type-${index}`).value,
                     symbol: document.getElementById(`symbol-${index}`).value.toUpperCase(),
@@ -1287,7 +1287,7 @@ IMPORTANT:
                         <span class="review-acct-code">${txn.accountLast4 ? '****' + txn.accountLast4 : 'N/A'}</span>
                     </td>
                     <td class="review-table-td" style="min-width:90px;">
-                        <input type="text" id="contractRef-${index}" value="${txn.contractReference || ''}" class="review-input">
+                        <input type="text" id="contractNoteNo-${index}" value="${txn.contractNoteNo || ''}" class="review-input">
                     </td>
                     <td class="review-table-td" style="min-width:120px;">
                         <input type="date" id="date-${index}" value="${txn.date || ''}" class="review-input">
@@ -1550,7 +1550,7 @@ IMPORTANT:
                 // Read values from form
                 const txn = {
                     accountId: accountId,
-                    contractReference: document.getElementById(`contractRef-${index}`).value,
+                    contractNoteNo: document.getElementById(`contractNoteNo-${index}`).value,
                     date: document.getElementById(`date-${index}`).value,
                     type: document.getElementById(`type-${index}`).value,
                     symbol: document.getElementById(`symbol-${index}`).value.toUpperCase(),
