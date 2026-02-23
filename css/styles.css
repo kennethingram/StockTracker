@@ -629,6 +629,11 @@ button {
   margin-top: 1px;
 }
 
+.price-not-loaded {
+  color: var(--text-muted);
+  font-weight: 400;
+}
+
 .holding-value {
   font-weight: 600;
   font-size: 0.88em;
@@ -1624,34 +1629,49 @@ button {
     height: 6px;
   }
 
-  /* Row 2: secondary stats */
-  .holding-row .holding-arr-col,
-  .holding-row .holding-value,
-  .holding-row .holding-qty,
+  /* Row 2: price + value on their own mini-row */
   .holding-row .holding-price,
+  .holding-row .holding-value,
+  .holding-row-detail .holding-price,
+  .holding-row-detail .holding-value {
+    order: 3;
+    flex: 0 0 auto;
+    font-size: 0.8em;
+    font-weight: 600;
+    color: var(--text-primary);
+    text-align: left;
+    margin-top: 6px;
+    margin-right: 14px;
+  }
+
+  /* Row 3: smaller secondary stats */
+  .holding-row .holding-arr-col,
+  .holding-row .holding-qty,
   .holding-row .holding-acb,
   .holding-row-detail .holding-arr-col,
-  .holding-row-detail .holding-value,
   .holding-row-detail .holding-qty,
-  .holding-row-detail .holding-price,
   .holding-row-detail .holding-acb,
   .holding-row-detail .holding-cost {
     order: 3;
     flex: 0 0 auto;
-    font-size: 0.75em;
+    font-size: 0.73em;
     color: var(--text-secondary);
     text-align: left;
     margin-right: 10px;
-    margin-top: 2px;
+    margin-top: 6px;
   }
 
   /* Label prefixes for secondary stats */
   .holding-arr-col::before  { content: "ARR ";  color: var(--text-muted); }
-  .holding-value::before    { content: "Val ";  color: var(--text-muted); }
+  .holding-value::before    { content: "Val ";  color: var(--text-muted); font-weight: 400; }
+  .holding-price::before    { content: "Px ";   color: var(--text-muted); font-weight: 400; }
   .holding-qty::before      { content: "Qty ";  color: var(--text-muted); }
-  .holding-price::before    { content: "Px ";   color: var(--text-muted); }
   .holding-acb::before      { content: "ACB ";  color: var(--text-muted); }
   .holding-cost::before     { content: "Cost "; color: var(--text-muted); }
+
+  /* Left border: skip on mobile (save space) */
+  .holding-row,
+  .holding-row-detail { border-left: none; }
 
   .filter-bar { gap: 6px; }
 
@@ -2042,6 +2062,184 @@ select option {
   font-size: 0.85em;
   font-weight: 600;
   text-align: right;
+}
+
+/* ===================================
+   Review / Validate Transaction Modal
+   =================================== */
+
+.review-info-box {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 14px 16px;
+  margin-bottom: 16px;
+  font-size: 0.88em;
+  color: var(--text-secondary);
+}
+
+.review-info-box strong { color: var(--text-primary); }
+
+.review-info-box details summary {
+  cursor: pointer;
+  color: var(--accent);
+  font-weight: 600;
+  margin-top: 8px;
+}
+
+.review-info-box pre {
+  white-space: pre-wrap;
+  font-size: 0.82em;
+  margin-top: 8px;
+  max-height: 180px;
+  overflow-y: auto;
+  background: var(--bg-base);
+  padding: 10px;
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+}
+
+.review-instructions {
+  background: var(--accent-dim);
+  border-left: 3px solid var(--accent);
+  border-radius: var(--radius-sm);
+  padding: 12px 16px;
+  margin-bottom: 16px;
+  font-size: 0.85em;
+  color: var(--text-secondary);
+}
+
+.review-instructions strong { color: var(--accent); }
+
+.review-instructions ul { margin: 6px 0 0 18px; }
+
+.review-instructions li { margin-bottom: 4px; }
+
+.review-actions-top {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.review-table-wrap { overflow-x: auto; }
+
+.review-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 860px;
+  font-size: 0.83em;
+}
+
+.review-table thead tr {
+  background: var(--bg-elevated);
+  border-bottom: 2px solid var(--border);
+}
+
+.review-table th {
+  padding: 9px 10px;
+  text-align: left;
+  font-size: 0.78em;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-weight: 600;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.review-table td,
+.review-table-td {
+  padding: 7px 8px;
+  vertical-align: middle;
+  border-bottom: 1px solid var(--border);
+}
+
+.review-table tbody tr:last-child td { border-bottom: none; }
+
+.review-table tbody tr:hover { background: var(--bg-elevated); }
+
+.review-table tbody tr.row-accepted { background: rgba(34, 197, 94, 0.07); }
+
+.review-table tbody tr.row-rejected {
+  background: rgba(239, 68, 68, 0.07);
+  opacity: 0.6;
+}
+
+.review-table tr.review-file-row td {
+  padding: 7px 10px;
+  font-weight: 600;
+  font-size: 0.82em;
+  color: var(--accent);
+  background: var(--accent-dim);
+  border-bottom: 1px solid var(--border);
+}
+
+/* Status badge */
+.review-badge {
+  display: inline-block;
+  padding: 3px 8px;
+  border-radius: var(--radius-sm);
+  font-size: 0.8em;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.review-badge-pending  { background: rgba(245,158,11,0.2); color: var(--warning); }
+.review-badge-accepted { background: rgba(34,197,94,0.2);  color: var(--positive); }
+.review-badge-rejected { background: rgba(239,68,68,0.2);  color: var(--negative); }
+
+/* Match badge */
+.match-badge-ok  { color: var(--positive); font-size: 0.78em; font-weight: 600; }
+.match-badge-err { color: var(--negative); font-size: 0.78em; font-weight: 600; }
+.match-badge-warn { color: var(--warning); font-size: 0.78em; font-weight: 600; }
+.match-badge-muted { color: var(--text-muted); font-size: 0.78em; }
+
+/* Inline review inputs match app style */
+.review-input, .review-select {
+  background: var(--bg-base);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 0.9em;
+  padding: 4px 6px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.review-input:focus, .review-select:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.review-acct-code {
+  font-family: monospace;
+  font-size: 0.88em;
+  color: var(--text-secondary);
+}
+
+/* ===================================
+   Holdings Card — improved visual
+   =================================== */
+
+/* Desktop: left border indicator for P/L direction */
+.holding-row,
+.holding-row-detail {
+  border-left: 3px solid transparent;
+}
+
+.holding-row.positive,
+.holding-row-detail.positive { border-left-color: var(--positive); }
+
+.holding-row.negative,
+.holding-row-detail.negative { border-left-color: var(--negative); }
+
+/* Holding symbol bolder */
+.holding-identity .holding-symbol {
+  font-weight: 700;
+  font-size: 0.95em;
+  letter-spacing: 0.3px;
 }
 
 

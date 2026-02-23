@@ -337,13 +337,13 @@ Extract the following information and return ONLY valid JSON (no markdown, no ex
       "date": "YYYY-MM-DD format",
       "settlementDate": "YYYY-MM-DD format if available, otherwise same as date",
       "type": "buy or sell",
-      "symbol": "stock ticker symbol",
+      "symbol": "stock ticker symbol (e.g. AAPL, LGEN, RY)",
       "company": "company name",
       "quantity": number,
-      "price": number (price per share),
-      "currency": "3-letter currency code (USD, CAD, GBP, etc)",
-      "fees": number (commission/fees),
-      "total": number (total amount),
+      "price": number (price per share as shown on the contract note),
+      "currency": "3-letter settlement currency code — the currency in which the TOTAL was paid (e.g. GBP for a UK LSE trade settled in pounds, even if the per-share price is quoted in pence/GBX)",
+      "fees": number (commission/fees as shown),
+      "total": number (total settlement amount — the actual amount debited/credited to the account),
       "accountLast4": "last 4 digits of account number if present"
     }
   ]
@@ -355,7 +355,8 @@ IMPORTANT:
 - Return ONLY the JSON object, nothing else
 - Use null if a field cannot be determined
 - Ensure all numbers are actual numbers, not strings
-- Currency must be 3-letter code (USD, CAD, GBP, EUR, INR, etc)
+- "currency" MUST be the settlement currency (currency of the total amount paid), always 3-letter code (USD, CAD, GBP, EUR, AUD, CHF)
+- For UK LSE stocks: settlement currency is GBP (pounds), even if price per share is shown in pence (GBX)
 - Type must be exactly "buy" or "sell"`;
 
         const requestBody = {
@@ -874,10 +875,8 @@ IMPORTANT:
 
             for (const fr of fileResults) {
                 bodyRows += `
-                    <tr style="background: var(--accent-dim, #eef2ff);">
-                        <td colspan="14" style="padding: 8px 12px; font-weight: 600; font-size: 0.85em; color: var(--accent, #667eea);">
-                            📄 ${fr.fileName}
-                        </td>
+                    <tr class="review-file-row">
+                        <td colspan="14">📄 ${fr.fileName}</td>
                     </tr>`;
 
                 for (const txn of fr.transactions) {
@@ -885,39 +884,36 @@ IMPORTANT:
                     allTransactions.push(txn);
 
                     bodyRows += `
-                        <tr id="txn-row-${globalIndex}" style="border-bottom: 1px solid #e2e8f0;" data-index="${globalIndex}">
-                            <td style="padding: 8px;">
-                                <span class="status-badge" id="status-${globalIndex}" style="background:#fbbf24;color:white;padding:3px 7px;border-radius:4px;font-size:0.8em;">Pending</span>
+                        <tr id="txn-row-${globalIndex}" data-index="${globalIndex}">
+                            <td class="review-table-td">
+                                <span class="review-badge review-badge-pending" id="status-${globalIndex}">Pending</span>
                             </td>
-                            <td style="padding: 8px; min-width: 160px;">
-                                <select id="account-${globalIndex}" style="width:100%;padding:4px;border:1px solid #e2e8f0;border-radius:4px;font-size:0.85em;">
+                            <td class="review-table-td" style="min-width:150px;">
+                                <select id="account-${globalIndex}" class="review-select">
                                     <option value="">Select…</option>
                                 </select>
-                                <span id="match-badge-${globalIndex}" style="font-size:0.75em;display:block;margin-top:2px;"></span>
+                                <span id="match-badge-${globalIndex}" style="display:block;margin-top:3px;"></span>
                             </td>
-                            <td style="padding: 8px; font-family: monospace; font-size:0.85em; white-space:nowrap;">
+                            <td class="review-table-td review-acct-code">
                                 ${txn.accountLast4 ? '****' + txn.accountLast4 : 'N/A'}
                             </td>
-                            <td style="padding: 8px;">
-                                <input type="text" id="contractRef-${globalIndex}" value="${txn.contractReference || ''}"
-                                       style="width:100%;padding:4px;border:1px solid #e2e8f0;border-radius:4px;font-size:0.85em;">
+                            <td class="review-table-td" style="min-width:90px;">
+                                <input type="text" id="contractRef-${globalIndex}" value="${txn.contractReference || ''}" class="review-input">
                             </td>
-                            <td style="padding: 8px;">
-                                <input type="date" id="date-${globalIndex}" value="${txn.date || ''}"
-                                       style="width:100%;padding:4px;border:1px solid #e2e8f0;border-radius:4px;font-size:0.85em;">
+                            <td class="review-table-td" style="min-width:120px;">
+                                <input type="date" id="date-${globalIndex}" value="${txn.date || ''}" class="review-input">
                             </td>
-                            <td style="padding: 8px;">
-                                <select id="type-${globalIndex}" style="width:70px;padding:4px;border:1px solid #e2e8f0;border-radius:4px;font-size:0.85em;">
+                            <td class="review-table-td">
+                                <select id="type-${globalIndex}" class="review-select" style="width:65px;">
                                     <option value="buy" ${txn.type === 'buy' ? 'selected' : ''}>Buy</option>
                                     <option value="sell" ${txn.type === 'sell' ? 'selected' : ''}>Sell</option>
                                 </select>
                             </td>
-                            <td style="padding: 8px;">
-                                <input type="text" id="symbol-${globalIndex}" value="${txn.symbol || ''}"
-                                       style="width:80px;padding:4px;border:1px solid #e2e8f0;border-radius:4px;font-size:0.85em;">
+                            <td class="review-table-td" style="min-width:75px;">
+                                <input type="text" id="symbol-${globalIndex}" value="${txn.symbol || ''}" class="review-input" style="width:75px;">
                             </td>
-                            <td style="padding: 8px;">
-                                <select id="exchange-${globalIndex}" style="width:100px;padding:4px;border:1px solid #e2e8f0;border-radius:4px;font-size:0.85em;">
+                            <td class="review-table-td" style="min-width:90px;">
+                                <select id="exchange-${globalIndex}" class="review-select" style="width:90px;">
                                     <option value="">Auto</option>
                                     <option value="LSE">LSE</option>
                                     <option value="TSX">TSX</option>
@@ -928,30 +924,26 @@ IMPORTANT:
                                     <option value="ASX">ASX</option>
                                 </select>
                             </td>
-                            <td style="padding: 8px;">
-                                <input type="number" id="quantity-${globalIndex}" value="${txn.quantity || ''}"
-                                       style="width:80px;padding:4px;border:1px solid #e2e8f0;border-radius:4px;font-size:0.85em;">
+                            <td class="review-table-td" style="min-width:75px;">
+                                <input type="number" id="quantity-${globalIndex}" value="${txn.quantity || ''}" class="review-input" style="width:75px;">
                             </td>
-                            <td style="padding: 8px;">
-                                <input type="number" id="price-${globalIndex}" value="${txn.price || ''}" step="0.0001"
-                                       style="width:90px;padding:4px;border:1px solid #e2e8f0;border-radius:4px;font-size:0.85em;">
+                            <td class="review-table-td" style="min-width:85px;">
+                                <input type="number" id="price-${globalIndex}" value="${txn.price || ''}" step="0.0001" class="review-input" style="width:85px;">
                             </td>
-                            <td style="padding: 8px;">
-                                <select id="currency-${globalIndex}" style="width:70px;padding:4px;border:1px solid #e2e8f0;border-radius:4px;font-size:0.85em;">
+                            <td class="review-table-td" style="min-width:75px;">
+                                <input type="number" id="fees-${globalIndex}" value="${txn.fees || 0}" step="0.01" class="review-input" style="width:75px;">
+                            </td>
+                            <td class="review-table-td" style="min-width:95px;">
+                                <input type="number" id="total-${globalIndex}" value="${txn.total || ''}" step="0.01" class="review-input" style="width:95px;">
+                            </td>
+                            <td class="review-table-td" style="min-width:70px;">
+                                <select id="currency-${globalIndex}" class="review-select" style="width:70px;">
                                     ${CONFIG.supportedCurrencies.map(c =>
                                         `<option value="${c.code}" ${txn.currency === c.code ? 'selected' : ''}>${c.code}</option>`
                                     ).join('')}
                                 </select>
                             </td>
-                            <td style="padding: 8px;">
-                                <input type="number" id="fees-${globalIndex}" value="${txn.fees || 0}" step="0.01"
-                                       style="width:80px;padding:4px;border:1px solid #e2e8f0;border-radius:4px;font-size:0.85em;">
-                            </td>
-                            <td style="padding: 8px;">
-                                <input type="number" id="total-${globalIndex}" value="${txn.total || ''}" step="0.01"
-                                       style="width:100px;padding:4px;border:1px solid #e2e8f0;border-radius:4px;font-size:0.85em;">
-                            </td>
-                            <td style="padding: 8px; white-space: nowrap;">
+                            <td class="review-table-td" style="white-space:nowrap;">
                                 <button class="btn-secondary btn-small" onclick="Parser.acceptTransaction(${globalIndex})" style="margin-right:4px;">✓</button>
                                 <button class="btn-secondary btn-small danger" onclick="Parser.rejectTransaction(${globalIndex})">✗</button>
                             </td>
@@ -970,32 +962,32 @@ IMPORTANT:
                         <button class="modal-close" onclick="this.closest('.modal').remove();">&times;</button>
                     </div>
                     <div class="modal-body">
-                        <div style="background:#eef2ff;padding:12px 16px;border-radius:8px;margin-bottom:16px;border-left:4px solid #667eea;">
-                            <strong>💡 Review all extracted transactions below.</strong>
+                        <div class="review-instructions">
+                            <strong>Review extracted transactions.</strong>
                             Edit any fields, then accept or reject each row. Only accepted transactions will be saved.
-                            <div style="margin-top:8px;display:flex;gap:8px;">
-                                <button class="btn-secondary btn-small" onclick="Parser._batchSetAll(${totalCount},'accept')">✓ Accept All</button>
-                                <button class="btn-secondary btn-small danger" onclick="Parser._batchSetAll(${totalCount},'reject')">✗ Reject All</button>
-                            </div>
                         </div>
-                        <div style="overflow-x:auto;">
-                            <table style="width:100%;border-collapse:collapse;min-width:900px;">
+                        <div class="review-actions-top">
+                            <button class="btn-secondary btn-small" onclick="Parser._batchSetAll(${totalCount},'accept')">✓ Accept All</button>
+                            <button class="btn-secondary btn-small danger" onclick="Parser._batchSetAll(${totalCount},'reject')">✗ Reject All</button>
+                        </div>
+                        <div class="review-table-wrap">
+                            <table class="review-table">
                                 <thead>
-                                    <tr style="background:#f7fafc;border-bottom:2px solid #e2e8f0;">
-                                        <th style="padding:8px;text-align:left;font-size:0.8em;">Status</th>
-                                        <th style="padding:8px;text-align:left;font-size:0.8em;">Account *</th>
-                                        <th style="padding:8px;text-align:left;font-size:0.8em;">PDF Acc</th>
-                                        <th style="padding:8px;text-align:left;font-size:0.8em;">Ref</th>
-                                        <th style="padding:8px;text-align:left;font-size:0.8em;">Date</th>
-                                        <th style="padding:8px;text-align:left;font-size:0.8em;">Type</th>
-                                        <th style="padding:8px;text-align:left;font-size:0.8em;">Symbol</th>
-                                        <th style="padding:8px;text-align:left;font-size:0.8em;">Exchange</th>
-                                        <th style="padding:8px;text-align:left;font-size:0.8em;">Qty</th>
-                                        <th style="padding:8px;text-align:left;font-size:0.8em;">Price</th>
-                                        <th style="padding:8px;text-align:left;font-size:0.8em;">Curr</th>
-                                        <th style="padding:8px;text-align:left;font-size:0.8em;">Fees</th>
-                                        <th style="padding:8px;text-align:left;font-size:0.8em;">Total</th>
-                                        <th style="padding:8px;text-align:left;font-size:0.8em;">Actions</th>
+                                    <tr>
+                                        <th>Status</th>
+                                        <th>Account *</th>
+                                        <th>PDF Acc</th>
+                                        <th>Ref</th>
+                                        <th>Date</th>
+                                        <th>Type</th>
+                                        <th>Symbol</th>
+                                        <th>Exchange</th>
+                                        <th>Qty</th>
+                                        <th>Price</th>
+                                        <th>Fees</th>
+                                        <th>Total</th>
+                                        <th>Settlement Ccy</th>
+                                        <th>Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody>${bodyRows}</tbody>
@@ -1003,7 +995,7 @@ IMPORTANT:
                         </div>
                         <div class="form-actions" style="margin-top:20px;">
                             <button class="btn-secondary" onclick="this.closest('.modal').remove();">Cancel All</button>
-                            <button class="btn-primary" id="batch-save-btn">💾 Save Accepted Transactions</button>
+                            <button class="btn-primary" id="batch-save-btn">Save Accepted Transactions</button>
                         </div>
                     </div>
                 </div>`;
@@ -1053,14 +1045,14 @@ IMPORTANT:
 
                     if (matchBadge) {
                         if (!pdfLast4) {
-                            matchBadge.innerHTML = '<span style="color:#a0aec0;">⚠️ No acct info</span>';
+                            matchBadge.innerHTML = '<span class="match-badge-muted">No acct info</span>';
                         } else if (matchingAccounts.length === 0) {
-                            matchBadge.innerHTML = '<span style="color:#f56565;font-weight:600;">⚠️ No match</span>';
+                            matchBadge.innerHTML = '<span class="match-badge-err">⚠ No match</span>';
                         } else if (matchingAccounts.length === 1) {
                             accountSelect.value = matchingAccounts[0];
-                            matchBadge.innerHTML = '<span style="color:#48bb78;font-weight:600;">✅ Matched</span>';
+                            matchBadge.innerHTML = '<span class="match-badge-ok">✓ Matched</span>';
                         } else {
-                            matchBadge.innerHTML = '<span style="color:#ed8936;font-weight:600;">⚠️ Multiple</span>';
+                            matchBadge.innerHTML = '<span class="match-badge-warn">⚠ Multiple</span>';
                         }
                     }
 
@@ -1225,111 +1217,104 @@ IMPORTANT:
         
         // Build table HTML
         let tableHTML = `
-            <table style="width: 100%; border-collapse: collapse; margin-top: 20px;">
+            <div class="review-table-wrap">
+            <table class="review-table">
                 <thead>
-                    <tr style="background: #f7fafc; border-bottom: 2px solid #e2e8f0;">
-                        <th style="padding: 12px; text-align: left; font-size: 0.9em;">Status</th>
-                        <th style="padding: 12px; text-align: left; font-size: 0.9em;">Account *</th>
-                        <th style="padding: 12px; text-align: left; font-size: 0.9em;">PDF Account</th>
-                        <th style="padding: 12px; text-align: left; font-size: 0.9em;">Contract Ref</th>
-                        <th style="padding: 12px; text-align: left; font-size: 0.9em;">Date</th>
-                        <th style="padding: 12px; text-align: left; font-size: 0.9em;">Type</th>
-                        <th style="padding: 12px; text-align: left; font-size: 0.9em;">Symbol</th>
-                        <th style="padding: 12px; text-align: left; font-size: 0.9em;">Exchange</th>
-                        <th style="padding: 12px; text-align: left; font-size: 0.9em;">Quantity</th>
-                        <th style="padding: 12px; text-align: left; font-size: 0.9em;">Price</th>
-                        <th style="padding: 12px; text-align: left; font-size: 0.9em;">Currency</th>
-                        <th style="padding: 12px; text-align: left; font-size: 0.9em;">Fees</th>
-                        <th style="padding: 12px; text-align: left; font-size: 0.9em;">Total</th>
-                        <th style="padding: 12px; text-align: left; font-size: 0.9em;">Actions</th>
+                    <tr>
+                        <th>Status</th>
+                        <th>Account *</th>
+                        <th>PDF Acc</th>
+                        <th>Contract Ref</th>
+                        <th>Date</th>
+                        <th>Type</th>
+                        <th>Symbol</th>
+                        <th>Exchange</th>
+                        <th>Quantity</th>
+                        <th>Price</th>
+                        <th>Fees</th>
+                        <th>Total</th>
+                        <th>Settlement Ccy</th>
+                        <th>Actions</th>
                     </tr>
                 </thead>
                 <tbody id="validation-table-body">
         `;
-        
+
         transactions.forEach((txn, index) => {
             tableHTML += `
-                <tr id="txn-row-${index}" style="border-bottom: 1px solid #e2e8f0;" data-index="${index}">
-                    <td style="padding: 12px;">
-                        <span class="status-badge" id="status-${index}" style="background: #fbbf24; color: white; padding: 4px 8px; border-radius: 4px; font-size: 0.85em;">Pending</span>
+                <tr id="txn-row-${index}" data-index="${index}">
+                    <td class="review-table-td">
+                        <span class="review-badge review-badge-pending" id="status-${index}">Pending</span>
                     </td>
-                    <td style="padding: 12px;">
-                        <select id="account-${index}" required style="width: 100%; padding: 6px; border: 1px solid #e2e8f0; border-radius: 4px; font-size: 0.9em;">
-                            <option value="">Select account...</option>
+                    <td class="review-table-td" style="min-width:150px;">
+                        <select id="account-${index}" required class="review-select">
+                            <option value="">Select account…</option>
                         </select>
+                        <span id="match-badge-${index}" style="display:block;margin-top:3px;"></span>
                     </td>
-                    <td style="padding: 12px;">
-                        <span id="pdf-account-${index}" style="font-family: monospace; font-size: 0.95em;">
-                            ${txn.accountLast4 ? '****' + txn.accountLast4 : 'N/A'}
-                        </span>
-                        <span id="match-badge-${index}" style="margin-left: 8px;"></span>
+                    <td class="review-table-td">
+                        <span class="review-acct-code">${txn.accountLast4 ? '****' + txn.accountLast4 : 'N/A'}</span>
                     </td>
-                    <td style="padding: 12px;">
-                        <input type="text" id="contractRef-${index}" value="${txn.contractReference || ''}" 
-                               style="width: 100%; padding: 6px; border: 1px solid #e2e8f0; border-radius: 4px; font-size: 0.9em;">
+                    <td class="review-table-td" style="min-width:90px;">
+                        <input type="text" id="contractRef-${index}" value="${txn.contractReference || ''}" class="review-input">
                     </td>
-                    <td style="padding: 12px;">
-                        <input type="date" id="date-${index}" value="${txn.date || ''}" 
-                               style="width: 100%; padding: 6px; border: 1px solid #e2e8f0; border-radius: 4px; font-size: 0.9em;">
+                    <td class="review-table-td" style="min-width:120px;">
+                        <input type="date" id="date-${index}" value="${txn.date || ''}" class="review-input">
                     </td>
-                    <td style="padding: 12px;">
-                        <select id="type-${index}" style="width: 100%; padding: 6px; border: 1px solid #e2e8f0; border-radius: 4px; font-size: 0.9em;">
+                    <td class="review-table-td">
+                        <select id="type-${index}" class="review-select" style="width:65px;">
                             <option value="buy" ${txn.type === 'buy' ? 'selected' : ''}>Buy</option>
                             <option value="sell" ${txn.type === 'sell' ? 'selected' : ''}>Sell</option>
                         </select>
                     </td>
-                    <td style="padding: 12px;">
-                        <input type="text" id="symbol-${index}" value="${txn.symbol || ''}" 
-                               style="width: 100%; padding: 6px; border: 1px solid #e2e8f0; border-radius: 4px; font-size: 0.9em;">
+                    <td class="review-table-td" style="min-width:75px;">
+                        <input type="text" id="symbol-${index}" value="${txn.symbol || ''}" class="review-input">
                     </td>
-                    <td style="padding: 12px;">
-                        <select id="exchange-${index}" style="width: 120px; padding: 6px; border: 1px solid #e2e8f0; border-radius: 4px; font-size: 0.9em;">
+                    <td class="review-table-td" style="min-width:90px;">
+                        <select id="exchange-${index}" class="review-select" style="width:90px;">
                             <option value="">Auto (US)</option>
                             <option value="LSE">LSE (UK)</option>
-                            <option value="TSX">TSX (Canada)</option>
+                            <option value="TSX">TSX (CA)</option>
                             <option value="NYSE">NYSE</option>
                             <option value="NASDAQ">NASDAQ</option>
-                            <option value="XETRA">XETRA (Germany)</option>
+                            <option value="XETRA">XETRA (DE)</option>
                             <option value="EURONEXT">Euronext</option>
-                            <option value="ASX">ASX (Australia)</option>
+                            <option value="ASX">ASX (AU)</option>
                         </select>
                     </td>
-                    <td style="padding: 12px;">
-                        <input type="number" id="quantity-${index}" value="${txn.quantity || ''}" 
-                               style="width: 100%; padding: 6px; border: 1px solid #e2e8f0; border-radius: 4px; font-size: 0.9em;">
+                    <td class="review-table-td" style="min-width:75px;">
+                        <input type="number" id="quantity-${index}" value="${txn.quantity || ''}" class="review-input" style="width:75px;">
                     </td>
-                    <td style="padding: 12px;">
-                        <input type="number" id="price-${index}" value="${txn.price || ''}" step="0.01" 
-                               style="width: 100%; padding: 6px; border: 1px solid #e2e8f0; border-radius: 4px; font-size: 0.9em;">
+                    <td class="review-table-td" style="min-width:85px;">
+                        <input type="number" id="price-${index}" value="${txn.price || ''}" step="0.01" class="review-input" style="width:85px;">
                     </td>
-                    <td style="padding: 12px;">
-                        <select id="currency-${index}" style="width: 100%; padding: 6px; border: 1px solid #e2e8f0; border-radius: 4px; font-size: 0.9em;">
-                            ${CONFIG.supportedCurrencies.map(c => 
+                    <td class="review-table-td" style="min-width:75px;">
+                        <input type="number" id="fees-${index}" value="${txn.fees || 0}" step="0.01" class="review-input" style="width:75px;">
+                    </td>
+                    <td class="review-table-td" style="min-width:95px;">
+                        <input type="number" id="total-${index}" value="${txn.total || ''}" step="0.01" class="review-input" style="width:95px;">
+                    </td>
+                    <td class="review-table-td" style="min-width:70px;">
+                        <select id="currency-${index}" class="review-select" style="width:70px;">
+                            ${CONFIG.supportedCurrencies.map(c =>
                                 `<option value="${c.code}" ${txn.currency === c.code ? 'selected' : ''}>${c.code}</option>`
                             ).join('')}
                         </select>
                     </td>
-                    <td style="padding: 12px;">
-                        <input type="number" id="fees-${index}" value="${txn.fees || 0}" step="0.01" 
-                               style="width: 100%; padding: 6px; border: 1px solid #e2e8f0; border-radius: 4px; font-size: 0.9em;">
-                    </td>
-                    <td style="padding: 12px;">
-                        <input type="number" id="total-${index}" value="${txn.total || ''}" step="0.01" 
-                               style="width: 100%; padding: 6px; border: 1px solid #e2e8f0; border-radius: 4px; font-size: 0.9em;">
-                    </td>
-                    <td style="padding: 12px;">
-                        <button class="btn-secondary btn-small" onclick="Parser.acceptTransaction(${index})" style="margin-right: 5px;">✓ Accept</button>
+                    <td class="review-table-td" style="white-space:nowrap;">
+                        <button class="btn-secondary btn-small" onclick="Parser.acceptTransaction(${index})" style="margin-right:4px;">✓ Accept</button>
                         <button class="btn-secondary btn-small danger" onclick="Parser.rejectTransaction(${index})">✗ Reject</button>
                     </td>
                 </tr>
             `;
         });
-        
+
         tableHTML += `
                 </tbody>
             </table>
+            </div>
         `;
-        
+
         modal.innerHTML = `
             <div class="modal-content" style="max-width: 95%; max-height: 90vh; overflow-y: auto;">
                 <div class="modal-header">
@@ -1337,29 +1322,28 @@ IMPORTANT:
                     <button class="modal-close" onclick="this.closest('.modal').remove(); location.reload();">&times;</button>
                 </div>
                 <div class="modal-body">
-                    <div style="background: #f7fafc; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
-                        <strong>📄 Source File:</strong> ${fileName}<br>
-                        <details style="margin-top: 10px;">
-                            <summary style="cursor: pointer; color: #667eea; font-weight: 600;">View Extracted Text (first 800 chars)</summary>
-                            <pre style="white-space: pre-wrap; font-size: 0.85em; margin-top: 10px; max-height: 200px; overflow-y: auto; background: white; padding: 10px; border-radius: 4px;">${sourceText.substring(0, 800)}...</pre>
+                    <div class="review-info-box">
+                        <strong>📄 Source File:</strong> ${fileName}
+                        <details>
+                            <summary>View extracted text (first 800 chars)</summary>
+                            <pre>${sourceText.substring(0, 800)}…</pre>
                         </details>
                     </div>
-                    
-                    <div style="background: #eef2ff; padding: 15px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #667eea;">
-                        <strong>💡 Instructions:</strong>
-                        <ul style="margin: 10px 0 0 20px; font-size: 0.9em;">
-                            <li>Review each transaction extracted by AI</li>
-                            <li>Edit any incorrect fields directly in the table</li>
-                            <li>Click "✓ Accept" to approve or "✗ Reject" to skip</li>
-                            <li>Only accepted transactions will be saved</li>
+
+                    <div class="review-instructions">
+                        <strong>Instructions:</strong>
+                        <ul>
+                            <li>Review each transaction extracted by AI. Edit any incorrect fields.</li>
+                            <li>Accept or Reject each row — only accepted transactions will be saved.</li>
+                            <li><strong>Settlement Ccy</strong> = currency of the total amount paid (used for cost basis).</li>
                         </ul>
                     </div>
-                    
+
                     ${tableHTML}
-                    
-                    <div class="form-actions" style="margin-top: 30px;">
+
+                    <div class="form-actions" style="margin-top: 24px;">
                         <button type="button" class="btn-secondary" onclick="this.closest('.modal').remove(); location.reload();">Cancel All</button>
-                        <button type="button" class="btn-primary" id="save-validated-btn">💾 Save Accepted Transactions</button>
+                        <button type="button" class="btn-primary" id="save-validated-btn">Save Accepted Transactions</button>
                     </div>
                 </div>
             </div>
@@ -1418,15 +1402,15 @@ IMPORTANT:
                 // Update match badge
                 if (matchBadge) {
                     if (!pdfLast4) {
-                        matchBadge.innerHTML = '<span style="color: #a0aec0; font-size: 0.85em;">⚠️ No account info in PDF</span>';
+                        matchBadge.innerHTML = '<span class="match-badge-muted">No account info in PDF</span>';
                     } else if (matchingAccounts.length === 0) {
-                        matchBadge.innerHTML = '<span style="color: #f56565; font-size: 0.85em; font-weight: 600;">⚠️ No match found</span>';
+                        matchBadge.innerHTML = '<span class="match-badge-err">⚠ No match found</span>';
                     } else if (matchingAccounts.length === 1) {
                         // Auto-select the matching account
                         accountSelect.value = matchingAccounts[0];
-                        matchBadge.innerHTML = '<span style="color: #48bb78; font-size: 0.85em; font-weight: 600;">✅ Auto-matched</span>';
+                        matchBadge.innerHTML = '<span class="match-badge-ok">✓ Auto-matched</span>';
                     } else {
-                        matchBadge.innerHTML = '<span style="color: #ed8936; font-size: 0.85em; font-weight: 600;">⚠️ Multiple matches - please verify</span>';
+                        matchBadge.innerHTML = '<span class="match-badge-warn">⚠ Multiple matches — verify</span>';
                     }
                 }
 
@@ -1457,33 +1441,33 @@ IMPORTANT:
     acceptTransaction: function(index) {
         const statusBadge = document.getElementById(`status-${index}`);
         const row = document.getElementById(`txn-row-${index}`);
-        
+
         if (statusBadge) {
             statusBadge.textContent = 'Accepted';
-            statusBadge.style.background = '#10b981';
-            row.style.background = '#f0fdf4';
+            statusBadge.className = 'review-badge review-badge-accepted';
+            row.className = 'row-accepted';
         }
-        
+
         // Find the modal and update state
         const modal = document.querySelector('.modal.active');
         if (modal && modal.transactionStates) {
             modal.transactionStates[index] = 'accepted';
         }
     },
-    
+
     /**
      * Reject a transaction
      */
     rejectTransaction: function(index) {
         const statusBadge = document.getElementById(`status-${index}`);
         const row = document.getElementById(`txn-row-${index}`);
-        
+
         if (statusBadge) {
             statusBadge.textContent = 'Rejected';
-            statusBadge.style.background = '#ef4444';
-            row.style.background = '#fef2f2';
+            statusBadge.className = 'review-badge review-badge-rejected';
+            row.className = 'row-rejected';
         }
-        
+
         // Find the modal and update state
         const modal = document.querySelector('.modal.active');
         if (modal && modal.transactionStates) {

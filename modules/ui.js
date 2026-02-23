@@ -548,8 +548,6 @@ const UI = {
                 else if (perf.arr < 0) { arrClass = 'negative'; }
             }
 
-            const priceAlert = !hasPerformanceData
-                ? `<div class="holding-alert holding-alert-price">⚠ Price not loaded — click the refresh icon to fetch</div>` : '';
             const fxAlert = missingHistoricalFX
                 ? `<div class="holding-alert holding-alert-fx">⚠ Historical FX missing — cost basis may be inaccurate. Go to Admin → Fix Missing FX Rates</div>` : '';
 
@@ -563,8 +561,8 @@ const UI = {
                 : '—';
 
             html += `
-                ${priceAlert}${fxAlert}
-                <div class="holding-row">
+                ${fxAlert}
+                <div class="holding-row ${plClass}">
                     <div class="holding-identity">
                         <div class="holding-symbol">${holding.symbol}</div>
                         <div class="holding-company">${holding.company || 'Unknown'}</div>
@@ -587,11 +585,11 @@ const UI = {
                     <div class="holding-value">${displayValue}</div>
                     <div class="holding-qty">${holding.quantity.toLocaleString()}</div>
                     <div class="holding-price">
-                        ${hasPerformanceData && perf.currentPrice
+                        ${perf && perf.currentPrice
                             ? this.formatCurrency(perf.currentPrice, priceCurrency) +
                               `<span class="holding-price-currency">${priceCurrency}</span>` +
                               (perf.priceStale ? `<span class="price-stale-label">Last close</span>` : '')
-                            : '<span style="color:var(--text-muted)">—</span>'}
+                            : '<span class="price-not-loaded">— <span class="price-stale-label">refresh to load</span></span>'}
                     </div>
                     <div class="holding-acb">${acb}</div>
                 </div>
@@ -709,7 +707,7 @@ const UI = {
                 ? this.formatCurrency(perf.currentPrice, priceCurrency) +
                   `<span class="holding-price-currency">${priceCurrency}</span>` +
                   (perf.priceStale ? `<span class="price-stale-label">Last close</span>` : '')
-                : '<span style="color:var(--text-muted)">—</span>';
+                : '<span class="price-not-loaded">— <span class="price-stale-label">refresh to load</span></span>';
 
             const costBasis = holding.costBasisConverted ?? holding.totalCostInBase;
             const acb = holding.quantity > 0
@@ -717,7 +715,7 @@ const UI = {
                 : '—';
 
             html += `
-                <div class="holding-row-detail">
+                <div class="holding-row-detail ${plClass}">
                     <div class="holding-identity">
                         <div class="holding-symbol">${holding.symbol}</div>
                         <div class="holding-company">${holding.company || 'Unknown'}</div>
