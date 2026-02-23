@@ -29,3 +29,6 @@ npm-debug.log*
 # Temporary files
 .tmp/
 temp/
+
+# Local dev tools — never deploy
+prompt-tester.html

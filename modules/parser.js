@@ -333,11 +333,11 @@ Extract the following information and return ONLY valid JSON (no markdown, no ex
 {
   "transactions": [
     {
-      "contractNoteNo": "the unique reference number for this contract note document — ONLY use labels explicitly related to the contract itself, such as 'Contract Note No.', 'Contract Note Number', 'Contract Number', 'Contract Ref', 'Contract Reference', 'Reference No.' on the contract header. Do NOT use stock codes, stock references, ISIN codes, sedol codes, ticker symbols, or any identifier related to the security being traded. If no contract-level reference is present, return null.",
+      "contractNoteNo": "the unique reference number for this contract note document — ONLY use labels explicitly related to the contract itself, such as 'Contract Note No.', 'Contract Note Number', 'Contract Number', Contract No. Do NOT use stock codes, stock references, ISIN codes, sedol codes, ticker symbols, or any identifier related to the security being traded. If no contract-level reference is present, return null.",
       "date": "YYYY-MM-DD format",
       "settlementDate": "YYYY-MM-DD format if available, otherwise same as date",
       "type": "buy or sell",
-      "symbol": "stock ticker symbol (e.g. AAPL, LGEN, RY)",
+      "symbol": "stock ticker symbol",
       "isin": "ISIN code — ALWAYS attempt to provide this. Priority: (1) extract from the contract note if present; (2) use your training knowledge — you know the ISIN for most publicly listed companies from ticker + exchange (e.g. LGEN on LSE = GB0002073146, AAPL = US0378331005, RY on TSX = CA7800871021, VOD on LSE = GB00BH4HKS39); (3) infer from company name + country alone if no ticker/exchange. Structure is 2-letter country code + 9-char alphanumeric + 1 check digit. Only return null if you have genuinely no basis to determine it.",
       "company": "company name",
       "quantity": number,
@@ -347,13 +347,14 @@ Extract the following information and return ONLY valid JSON (no markdown, no ex
       "fees": number (everything charged BEYOND Quantity × Price — the difference between the gross consideration and the net settlement total; includes commission, stamp duty, PTM levy, and any other charges or deductions; sum them all into one figure),
       "feesCurrency": "3-letter currency code for the commission/fees — as stated on the contract note; use the settlement currency if fees currency is not separately specified",
       "total": number (total settlement amount — the actual amount debited/credited to the account),
-      "accountLast4": "last 4 digits of account number if present"
+      "exchange": "exchange code — infer from broker, currency, or company domicile if not explicit (LSE, NYSE, NASDAQ, TSX, ASX, XETRA, etc.)",
+      "accountLast4": "Identify the Account Number and provide the last 4 digits of the account number if present"
     }
   ]
 }
 
 IMPORTANT:
-- If there are MULTIPLE transactions in the contract note, include ALL of them in the transactions array
+- If there are MULTIPLE transactions, include ALL of them in the transactions array
 - Each transaction should have its own contractNoteNo if available
 - Return ONLY the JSON object, nothing else
 - Use null if a field cannot be determined
@@ -522,18 +523,22 @@ Extract the following information and return ONLY valid JSON (no markdown, no ex
 {
   "transactions": [
     {
-      "contractNoteNo": "the unique reference number for this contract note document — ONLY use labels explicitly related to the contract itself, such as 'Contract Note No.', 'Contract Note Number', 'Contract Number', 'Contract Ref', 'Contract Reference'. Do NOT use stock codes, stock references, ISIN codes, sedol codes, ticker symbols, or any identifier related to the security being traded. If no contract-level reference is present, return null.",
+      "contractNoteNo": "the unique reference number for this contract note document — ONLY use labels explicitly related to the contract itself, such as 'Contract Note No.', 'Contract Note Number', 'Contract Number', Contract No. Do NOT use stock codes, stock references, ISIN codes, sedol codes, ticker symbols, or any identifier related to the security being traded. If no contract-level reference is present, return null.",
       "date": "YYYY-MM-DD format",
       "settlementDate": "YYYY-MM-DD format if available, otherwise same as date",
       "type": "buy or sell",
       "symbol": "stock ticker symbol",
+      "isin": "ISIN code — ALWAYS attempt to provide this. Priority: (1) extract from the contract note if present; (2) use your training knowledge — you know the ISIN for most publicly listed companies from ticker + exchange (e.g. LGEN on LSE = GB0002073146, AAPL = US0378331005, RY on TSX = CA7800871021, VOD on LSE = GB00BH4HKS39); (3) infer from company name + country alone if no ticker/exchange. Structure is 2-letter country code + 9-char alphanumeric + 1 check digit. Only return null if you have genuinely no basis to determine it.",
       "company": "company name",
       "quantity": number,
-      "price": number (price per share),
-      "currency": "3-letter currency code (USD, CAD, GBP, etc)",
-      "fees": number (commission/fees),
-      "total": number (total amount),
-      "accountLast4": "last 4 digits of account number if present"
+      "price": number (price per share as shown on the contract note),
+      "priceCurrency": "3-letter currency code for the price per share — infer from the exchange or how the price is shown on the contract note (e.g. LSE stocks often quote in GBX/pence; NYSE/NASDAQ → USD; TSX → CAD; XETRA → EUR; ASX → AUD). If the symbol already makes the exchange clear (e.g. AAPL = NYSE = USD), use that.",
+      "currency": "3-letter settlement currency code — the currency in which the TOTAL was paid, exactly as stated on the contract note",
+      "fees": number (everything charged BEYOND Quantity × Price — the difference between the gross consideration and the net settlement total; includes commission, stamp duty, PTM levy, and any other charges or deductions; sum them all into one figure),
+      "feesCurrency": "3-letter currency code for the commission/fees — as stated on the contract note; use the settlement currency if fees currency is not separately specified",
+      "total": number (total settlement amount — the actual amount debited/credited to the account),
+      "exchange": "exchange code — infer from broker, currency, or company domicile if not explicit (LSE, NYSE, NASDAQ, TSX, ASX, XETRA, etc.)",
+      "accountLast4": "Identify the Account Number and provide the last 4 digits of the account number if present"
     }
   ]
 }
@@ -544,7 +549,10 @@ IMPORTANT:
 - Return ONLY the JSON object, nothing else
 - Use null if a field cannot be determined
 - Ensure all numbers are actual numbers, not strings
-- Currency must be 3-letter code (USD, CAD, GBP, EUR, INR, etc)
+- "currency" MUST be the settlement currency (the currency in which the total amount was actually paid), always a 3-letter code (USD, CAD, GBP, EUR, AUD, CHF)
+- "priceCurrency" must be a 3-letter code: USD, CAD, GBP, GBX, EUR, AUD, CHF
+- "feesCurrency" must be a 3-letter code: USD, CAD, GBP, EUR, AUD, CHF
+- "isin" must be a 12-character alphanumeric code — use your knowledge to infer it even when not on the document; only null as last resort
 - Type must be exactly "buy" or "sell"`;
 
         const requestBody = {
