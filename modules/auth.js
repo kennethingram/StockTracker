@@ -94,22 +94,22 @@ const Auth = {
     handleAuthSuccess: async function(response) {
         // Save the access token
         this.accessToken = response.access_token;
-        
+
         // Save to browser storage so user stays logged in
         localStorage.setItem('google_access_token', this.accessToken);
+        // Save expiry time (tokens last ~1 hour; use 55 min to be safe)
+        const expiresAt = Date.now() + (response.expires_in || 3600) * 1000 - 5 * 60 * 1000;
+        localStorage.setItem('google_token_expires_at', expiresAt.toString());
         
         // Get user email from Google
         this.getUserInfo();
         
-        // Show the dashboard
-        this.showDashboard();
-        
-        // Initialize other modules now that we're authenticated
-        if (typeof Database !== 'undefined') {
-            await Database.init();
-        }
+        // Show the dashboard (handles Database.init + UI refresh internally)
+        await this.showDashboard();
+
+        // Initialize Drive module (folder config) after DB is ready
         if (typeof Drive !== 'undefined') {
-            await Drive.init();
+            Drive.init();
         }
     },
     
@@ -188,6 +188,7 @@ const Auth = {
         
         // Remove from browser storage
         localStorage.removeItem('google_access_token');
+        localStorage.removeItem('google_token_expires_at');
         localStorage.removeItem('profile_initials');
         localStorage.removeItem('profile_name');
         localStorage.removeItem('profile_email');
@@ -199,14 +200,40 @@ const Auth = {
     },
     
     /**
+     * Called when a Drive API returns 401 — token expired mid-session
+     * Clears auth state and shows login screen with a message
+     */
+    handleTokenExpired: function() {
+        console.warn('Auth token expired during API call — redirecting to login');
+        this.accessToken = null;
+        this.userEmail = null;
+        localStorage.removeItem('google_access_token');
+        localStorage.removeItem('google_token_expires_at');
+        this.showLoginScreen();
+        const msgEl = document.getElementById('session-expired-msg');
+        if (msgEl) msgEl.style.display = 'block';
+    },
+
+    /**
      * Load saved token from browser storage
+     * Returns false if token is expired or missing
      */
     loadTokenFromStorage: function() {
         const savedToken = localStorage.getItem('google_access_token');
+        const expiresAt = localStorage.getItem('google_token_expires_at');
         if (savedToken) {
+            if (expiresAt && Date.now() > parseInt(expiresAt)) {
+                // Token expired — clear it so login screen shows
+                localStorage.removeItem('google_access_token');
+                localStorage.removeItem('google_token_expires_at');
+                console.log('Stored token expired, cleared');
+                return false;
+            }
             this.accessToken = savedToken;
             console.log('Loaded saved access token');
+            return true;
         }
+        return false;
     },
     
     /**
@@ -218,23 +245,33 @@ const Auth = {
     },
     
     /**
-     * Show the dashboard
-     */
-    /**
-     * Show the dashboard
+     * Show the dashboard and load initial view data
      */
      showDashboard: async function() {
         document.getElementById('login-screen').classList.remove('active');
         document.getElementById('dashboard-screen').classList.add('active');
-        
+
+        // Clear session-expired notice if it was shown
+        const expiredMsg = document.getElementById('session-expired-msg');
+        if (expiredMsg) expiredMsg.style.display = 'none';
+
         // Get user info if we don't have it
         if (!this.userEmail && this.accessToken) {
             this.getUserInfo();
         }
-        
-        // Initialize database first (ensure it's ready)
+
+        // Load database, show loading state while waiting
         if (typeof Database !== 'undefined') {
-            await Database.init();
+            if (typeof UI !== 'undefined') UI.showLoading('Loading portfolio...');
+            try {
+                await Database.init();
+            } finally {
+                if (typeof UI !== 'undefined') UI.hideLoading();
+            }
+            // Only refresh UI if we're still on the dashboard (token expiry redirects back to login)
+            if (this.accessToken && typeof UI !== 'undefined') {
+                UI.loadViewData(UI.currentView || 'overview');
+            }
         }
     },
     

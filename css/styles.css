@@ -118,6 +118,17 @@ body {
   border-radius: var(--radius-sm);
 }
 
+.session-expired-msg {
+  font-size: 0.875em;
+  color: var(--warning, #f59e0b);
+  background: rgba(245, 158, 11, 0.1);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  border-radius: var(--radius-sm);
+  padding: 10px 14px;
+  margin-bottom: 12px;
+  text-align: center;
+}
+
 /* ===================================
    Buttons
    =================================== */

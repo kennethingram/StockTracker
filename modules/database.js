@@ -85,7 +85,10 @@ const Database = {
             
         } catch (error) {
             console.error('❌ Error loading database:', error);
-            UI.showMessage('Error loading database', 'error');
+            // Don't show error toast if we're redirecting to login for auth expiry
+            if (error.message !== 'Authentication expired') {
+                UI.showMessage('Error loading database', 'error');
+            }
         }
     },
     
@@ -107,12 +110,17 @@ const Database = {
             }
         });
         
+        if (response.status === 401) {
+            if (typeof Auth !== 'undefined') Auth.handleTokenExpired();
+            throw new Error('Authentication expired');
+        }
+
         const data = await response.json();
-        
+
         if (data.files && data.files.length > 0) {
             return data.files[0].id;
         }
-        
+
         return null;
     },
     
@@ -133,13 +141,16 @@ const Database = {
         if (response.ok) {
             const fileData = await response.json();
             this.data = fileData;
-            
+
             // Ensure fxRates exists
             if (!this.data.fxRates) {
                 this.data.fxRates = {};
             }
-            
+
             console.log('Database loaded:', this.data);
+        } else if (response.status === 401) {
+            if (typeof Auth !== 'undefined') Auth.handleTokenExpired();
+            throw new Error('Authentication expired');
         } else {
             throw new Error('Failed to read database file');
         }
