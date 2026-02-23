@@ -841,6 +841,59 @@ const UI = {
         this.updateAdminView();
     },
 
+    /**
+     * Backfill fxRate / fxRateSource / base-currency amounts for any
+     * transaction that was saved before the FX fields were introduced.
+     */
+    backfillMissingFXRates: async function() {
+        const data = Database.getData();
+        const transactions = data.transactions || [];
+
+        const needsFX = transactions.filter(t =>
+            t.currency &&
+            t.currency !== CONFIG.baseCurrency &&
+            (!t.fxRate || t.fxRateSource === 'fallback')
+        );
+
+        if (needsFX.length === 0) {
+            UI.showMessage('All transactions already have FX rates — nothing to update.', 'info');
+            return;
+        }
+
+        UI.showLoading(`Fetching FX rates for ${needsFX.length} transaction(s)…`);
+
+        let updated = 0;
+        let failed = 0;
+
+        for (const txn of needsFX) {
+            try {
+                const fxRate = await FX.getHistoricalRate(txn.date, txn.currency, CONFIG.baseCurrency);
+                txn.fxRate = fxRate;
+                txn.fxRateSource = 'api';
+                txn.fxRateDate = txn.date;
+                txn.totalInBase = (txn.total || 0) * fxRate;
+                txn.priceInBase = (txn.price || 0) * fxRate;
+                txn.feesInBase = (txn.fees || 0) * fxRate;
+                txn.baseCurrency = CONFIG.baseCurrency;
+                updated++;
+            } catch (e) {
+                console.error(`FX backfill failed for ${txn.symbol} on ${txn.date}:`, e);
+                failed++;
+            }
+        }
+
+        await Database.saveToDrive();
+        this.invalidateStatsCache();
+        UI.hideLoading();
+
+        if (failed === 0) {
+            UI.showMessage(`✅ FX rates updated for ${updated} transaction(s).`, 'success');
+        } else {
+            UI.showMessage(`Updated ${updated} transaction(s). ${failed} could not be fetched (see console).`, 'warning');
+        }
+        this.updateOverview();
+    },
+
     exportDatabaseJSON: function() {
         const data = Database.getData();
         const json = JSON.stringify(data, null, 2);
@@ -1682,11 +1735,59 @@ const UI = {
     },
     
     /**
-     * Process all unprocessed files
+     * Process all unprocessed files in batch.
+     * Calls Gemini on each file sequentially, then shows a single combined
+     * validation modal. The user accepts/rejects everything before anything
+     * is committed to the database.
      */
      processAllFiles: async function() {
-        UI.showMessage('Batch processing functionality coming in Phase 2!', 'info');
-        console.log('Would process all files');
+        if (!Drive.contractNotesFolderId) {
+            UI.showMessage('Please select a Drive folder first', 'error');
+            return;
+        }
+
+        UI.showLoading('Scanning for unprocessed files…');
+        let unprocessedFiles;
+        try {
+            unprocessedFiles = await Drive.getUnprocessedFiles();
+        } catch (error) {
+            UI.hideLoading();
+            UI.showMessage('Error scanning files: ' + error.message, 'error');
+            return;
+        }
+
+        if (unprocessedFiles.length === 0) {
+            UI.hideLoading();
+            UI.showMessage('No new files to process', 'info');
+            return;
+        }
+
+        // Run Gemini extraction on each file — no UI side-effects yet
+        const results = [];
+        for (let i = 0; i < unprocessedFiles.length; i++) {
+            const file = unprocessedFiles[i];
+            UI.showLoading(`Extracting ${i + 1} of ${unprocessedFiles.length}: ${file.name}…`);
+            const result = await Parser.extractTransactionsFromFile(file.id, file.name);
+            results.push(result);
+        }
+        UI.hideLoading();
+
+        const successful = results.filter(r => !r.error);
+        const failed = results.filter(r => r.error);
+
+        if (failed.length > 0) {
+            const names = failed.map(f => f.fileName).join(', ');
+            UI.showMessage(`${failed.length} file(s) could not be parsed and were skipped: ${names}`, 'warning');
+        }
+
+        if (successful.length === 0) {
+            UI.showMessage('No transactions could be extracted from any file.', 'error');
+            return;
+        }
+
+        // Show the combined batch validation modal — nothing is saved until user confirms
+        await Parser.showBatchValidationUI(successful);
+        // saveBatchValidatedTransactions (called inside the modal) handles DB writes + UI refresh
     },
 
     /**

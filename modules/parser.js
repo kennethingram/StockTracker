@@ -62,8 +62,11 @@ const Parser = {
                 let totalInBase = transaction.total;
                 let priceInBase = transaction.price;
                 let feesInBase = transaction.fees || 0;
-                
+                let fxRate = 1.0;
+                let fxRateSource = 'none'; // same currency — no conversion needed
+
                 if (transaction.currency !== CONFIG.baseCurrency) {
+                    fxRateSource = 'fallback'; // assume fallback until API call succeeds
                     try {
                         totalInBase = await FX.convertWithHistoricalRate(
                             transaction.total,
@@ -71,28 +74,30 @@ const Parser = {
                             CONFIG.baseCurrency,
                             transaction.date
                         );
-                        
+
                         priceInBase = await FX.convertWithHistoricalRate(
                             transaction.price,
                             transaction.currency,
                             CONFIG.baseCurrency,
                             transaction.date
                         );
-                        
+
                         feesInBase = await FX.convertWithHistoricalRate(
                             transaction.fees || 0,
                             transaction.currency,
                             CONFIG.baseCurrency,
                             transaction.date
                         );
-                        
-                        console.log(`✅ Converted: ${transaction.total} ${transaction.currency} → ${totalInBase.toFixed(2)} ${CONFIG.baseCurrency}`);
+
+                        fxRate = transaction.total > 0 ? totalInBase / transaction.total : 1.0;
+                        fxRateSource = 'api';
+                        console.log(`✅ Converted: ${transaction.total} ${transaction.currency} → ${totalInBase.toFixed(2)} ${CONFIG.baseCurrency} (rate: ${fxRate.toFixed(6)})`);
                     } catch (error) {
                         console.error('⚠️ Failed to convert transaction amounts:', error);
-                        // Keep original amounts if conversion fails
+                        // Keep original amounts; fxRateSource stays 'fallback' so warning is shown
                     }
                 }
-                
+
                 // Add missing fields with calculated base currency amounts
                 const completeTransaction = {
                     ...transaction,
@@ -102,6 +107,9 @@ const Parser = {
                     priceInBase: priceInBase,
                     feesInBase: feesInBase,
                     totalInBase: totalInBase,
+                    fxRate: fxRate,
+                    fxRateSource: fxRateSource,
+                    fxRateDate: transaction.date,
                     broker: transaction.broker || '',
                     contractNoteFile: fileName,
                     contractNoteId: fileId
@@ -813,6 +821,393 @@ IMPORTANT:
      * Show validation UI for human review
      * Returns array of validated transactions
      */
+    /**
+     * Extract transactions from a file without any UI side-effects.
+     * Used by batch processing. Returns { fileId, fileName, transactions, sourceText }
+     * or { fileId, fileName, error } on failure.
+     */
+    extractTransactionsFromFile: async function(fileId, fileName) {
+        try {
+            const pdfBlob = await Drive.downloadFile(fileId);
+            const pdfText = await this.extractTextFromPDF(pdfBlob);
+            const hasText = pdfText && pdfText.trim().length > 100 &&
+                            !pdfText.includes('NO TEXT EXTRACTED');
+
+            let result;
+            if (hasText) {
+                result = await this.callGeminiAPI(pdfText, fileName);
+            } else {
+                const base64Data = await this.convertPDFToImage(pdfBlob);
+                result = await this.callGeminiVisionAPI(base64Data, fileName);
+            }
+
+            if (!result || !result.transactions || result.transactions.length === 0) {
+                throw new Error('No transactions extracted');
+            }
+
+            return {
+                fileId,
+                fileName,
+                transactions: result.transactions,
+                sourceText: hasText ? pdfText : 'Image-based PDF'
+            };
+        } catch (error) {
+            console.error(`Failed to extract from ${fileName}:`, error);
+            return { fileId, fileName, error: error.message };
+        }
+    },
+
+    /**
+     * Show a combined batch validation modal for multiple files.
+     * Resolves when the user saves (or rejects everything).
+     */
+    showBatchValidationUI: async function(fileResults) {
+        return new Promise((resolve) => {
+            const modal = document.createElement('div');
+            modal.className = 'modal active';
+            modal.style.zIndex = '10000';
+
+            let globalIndex = 0;
+            let bodyRows = '';
+            const allTransactions = [];
+            const indexToFile = {};
+
+            for (const fr of fileResults) {
+                bodyRows += `
+                    <tr style="background: var(--accent-dim, #eef2ff);">
+                        <td colspan="14" style="padding: 8px 12px; font-weight: 600; font-size: 0.85em; color: var(--accent, #667eea);">
+                            📄 ${fr.fileName}
+                        </td>
+                    </tr>`;
+
+                for (const txn of fr.transactions) {
+                    indexToFile[globalIndex] = { fileId: fr.fileId, fileName: fr.fileName };
+                    allTransactions.push(txn);
+
+                    bodyRows += `
+                        <tr id="txn-row-${globalIndex}" style="border-bottom: 1px solid #e2e8f0;" data-index="${globalIndex}">
+                            <td style="padding: 8px;">
+                                <span class="status-badge" id="status-${globalIndex}" style="background:#fbbf24;color:white;padding:3px 7px;border-radius:4px;font-size:0.8em;">Pending</span>
+                            </td>
+                            <td style="padding: 8px; min-width: 160px;">
+                                <select id="account-${globalIndex}" style="width:100%;padding:4px;border:1px solid #e2e8f0;border-radius:4px;font-size:0.85em;">
+                                    <option value="">Select…</option>
+                                </select>
+                                <span id="match-badge-${globalIndex}" style="font-size:0.75em;display:block;margin-top:2px;"></span>
+                            </td>
+                            <td style="padding: 8px; font-family: monospace; font-size:0.85em; white-space:nowrap;">
+                                ${txn.accountLast4 ? '****' + txn.accountLast4 : 'N/A'}
+                            </td>
+                            <td style="padding: 8px;">
+                                <input type="text" id="contractRef-${globalIndex}" value="${txn.contractReference || ''}"
+                                       style="width:100%;padding:4px;border:1px solid #e2e8f0;border-radius:4px;font-size:0.85em;">
+                            </td>
+                            <td style="padding: 8px;">
+                                <input type="date" id="date-${globalIndex}" value="${txn.date || ''}"
+                                       style="width:100%;padding:4px;border:1px solid #e2e8f0;border-radius:4px;font-size:0.85em;">
+                            </td>
+                            <td style="padding: 8px;">
+                                <select id="type-${globalIndex}" style="width:70px;padding:4px;border:1px solid #e2e8f0;border-radius:4px;font-size:0.85em;">
+                                    <option value="buy" ${txn.type === 'buy' ? 'selected' : ''}>Buy</option>
+                                    <option value="sell" ${txn.type === 'sell' ? 'selected' : ''}>Sell</option>
+                                </select>
+                            </td>
+                            <td style="padding: 8px;">
+                                <input type="text" id="symbol-${globalIndex}" value="${txn.symbol || ''}"
+                                       style="width:80px;padding:4px;border:1px solid #e2e8f0;border-radius:4px;font-size:0.85em;">
+                            </td>
+                            <td style="padding: 8px;">
+                                <select id="exchange-${globalIndex}" style="width:100px;padding:4px;border:1px solid #e2e8f0;border-radius:4px;font-size:0.85em;">
+                                    <option value="">Auto</option>
+                                    <option value="LSE">LSE</option>
+                                    <option value="TSX">TSX</option>
+                                    <option value="NYSE">NYSE</option>
+                                    <option value="NASDAQ">NASDAQ</option>
+                                    <option value="XETRA">XETRA</option>
+                                    <option value="EURONEXT">Euronext</option>
+                                    <option value="ASX">ASX</option>
+                                </select>
+                            </td>
+                            <td style="padding: 8px;">
+                                <input type="number" id="quantity-${globalIndex}" value="${txn.quantity || ''}"
+                                       style="width:80px;padding:4px;border:1px solid #e2e8f0;border-radius:4px;font-size:0.85em;">
+                            </td>
+                            <td style="padding: 8px;">
+                                <input type="number" id="price-${globalIndex}" value="${txn.price || ''}" step="0.0001"
+                                       style="width:90px;padding:4px;border:1px solid #e2e8f0;border-radius:4px;font-size:0.85em;">
+                            </td>
+                            <td style="padding: 8px;">
+                                <select id="currency-${globalIndex}" style="width:70px;padding:4px;border:1px solid #e2e8f0;border-radius:4px;font-size:0.85em;">
+                                    ${CONFIG.supportedCurrencies.map(c =>
+                                        `<option value="${c.code}" ${txn.currency === c.code ? 'selected' : ''}>${c.code}</option>`
+                                    ).join('')}
+                                </select>
+                            </td>
+                            <td style="padding: 8px;">
+                                <input type="number" id="fees-${globalIndex}" value="${txn.fees || 0}" step="0.01"
+                                       style="width:80px;padding:4px;border:1px solid #e2e8f0;border-radius:4px;font-size:0.85em;">
+                            </td>
+                            <td style="padding: 8px;">
+                                <input type="number" id="total-${globalIndex}" value="${txn.total || ''}" step="0.01"
+                                       style="width:100px;padding:4px;border:1px solid #e2e8f0;border-radius:4px;font-size:0.85em;">
+                            </td>
+                            <td style="padding: 8px; white-space: nowrap;">
+                                <button class="btn-secondary btn-small" onclick="Parser.acceptTransaction(${globalIndex})" style="margin-right:4px;">✓</button>
+                                <button class="btn-secondary btn-small danger" onclick="Parser.rejectTransaction(${globalIndex})">✗</button>
+                            </td>
+                        </tr>`;
+
+                    globalIndex++;
+                }
+            }
+
+            const totalCount = globalIndex;
+
+            modal.innerHTML = `
+                <div class="modal-content" style="max-width:98%;max-height:90vh;overflow-y:auto;">
+                    <div class="modal-header">
+                        <h2>Batch Import Review — ${fileResults.length} file(s), ${totalCount} transaction(s)</h2>
+                        <button class="modal-close" onclick="this.closest('.modal').remove();">&times;</button>
+                    </div>
+                    <div class="modal-body">
+                        <div style="background:#eef2ff;padding:12px 16px;border-radius:8px;margin-bottom:16px;border-left:4px solid #667eea;">
+                            <strong>💡 Review all extracted transactions below.</strong>
+                            Edit any fields, then accept or reject each row. Only accepted transactions will be saved.
+                            <div style="margin-top:8px;display:flex;gap:8px;">
+                                <button class="btn-secondary btn-small" onclick="Parser._batchSetAll(${totalCount},'accept')">✓ Accept All</button>
+                                <button class="btn-secondary btn-small danger" onclick="Parser._batchSetAll(${totalCount},'reject')">✗ Reject All</button>
+                            </div>
+                        </div>
+                        <div style="overflow-x:auto;">
+                            <table style="width:100%;border-collapse:collapse;min-width:900px;">
+                                <thead>
+                                    <tr style="background:#f7fafc;border-bottom:2px solid #e2e8f0;">
+                                        <th style="padding:8px;text-align:left;font-size:0.8em;">Status</th>
+                                        <th style="padding:8px;text-align:left;font-size:0.8em;">Account *</th>
+                                        <th style="padding:8px;text-align:left;font-size:0.8em;">PDF Acc</th>
+                                        <th style="padding:8px;text-align:left;font-size:0.8em;">Ref</th>
+                                        <th style="padding:8px;text-align:left;font-size:0.8em;">Date</th>
+                                        <th style="padding:8px;text-align:left;font-size:0.8em;">Type</th>
+                                        <th style="padding:8px;text-align:left;font-size:0.8em;">Symbol</th>
+                                        <th style="padding:8px;text-align:left;font-size:0.8em;">Exchange</th>
+                                        <th style="padding:8px;text-align:left;font-size:0.8em;">Qty</th>
+                                        <th style="padding:8px;text-align:left;font-size:0.8em;">Price</th>
+                                        <th style="padding:8px;text-align:left;font-size:0.8em;">Curr</th>
+                                        <th style="padding:8px;text-align:left;font-size:0.8em;">Fees</th>
+                                        <th style="padding:8px;text-align:left;font-size:0.8em;">Total</th>
+                                        <th style="padding:8px;text-align:left;font-size:0.8em;">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>${bodyRows}</tbody>
+                            </table>
+                        </div>
+                        <div class="form-actions" style="margin-top:20px;">
+                            <button class="btn-secondary" onclick="this.closest('.modal').remove();">Cancel All</button>
+                            <button class="btn-primary" id="batch-save-btn">💾 Save Accepted Transactions</button>
+                        </div>
+                    </div>
+                </div>`;
+
+            modal.transactionStates = allTransactions.map(() => 'pending');
+            modal.transactions = allTransactions;
+            modal.indexToFile = indexToFile;
+            modal.resolveFunc = resolve;
+
+            document.body.appendChild(modal);
+
+            // Populate dropdowns after DOM insertion
+            setTimeout(() => {
+                const data = Database.getData();
+                const accounts = Object.values(data.accounts || {});
+
+                if (accounts.length === 0) {
+                    alert('⚠️ No accounts found! Please create at least one account in the Accounts tab first.');
+                    modal.remove();
+                    resolve(null);
+                    return;
+                }
+
+                allTransactions.forEach((txn, index) => {
+                    const accountSelect = document.getElementById(`account-${index}`);
+                    const matchBadge = document.getElementById(`match-badge-${index}`);
+                    if (!accountSelect) return;
+
+                    const pdfLast4 = txn.accountLast4;
+                    const matchingAccounts = [];
+
+                    accounts.forEach(acc => {
+                        const option = document.createElement('option');
+                        option.value = acc.id;
+                        const accLast4 = acc.accountNumberLast4 || acc.accountNumber?.slice(-4);
+                        const isMatch = pdfLast4 && accLast4 === pdfLast4;
+                        if (isMatch) {
+                            matchingAccounts.push(acc.id);
+                            option.textContent = `${acc.name} (****${accLast4}) ✓ MATCH`;
+                            option.style.background = '#c6f6d5';
+                            option.style.fontWeight = '600';
+                        } else {
+                            option.textContent = `${acc.name}${accLast4 ? ' (****' + accLast4 + ')' : ''}`;
+                        }
+                        accountSelect.appendChild(option);
+                    });
+
+                    if (matchBadge) {
+                        if (!pdfLast4) {
+                            matchBadge.innerHTML = '<span style="color:#a0aec0;">⚠️ No acct info</span>';
+                        } else if (matchingAccounts.length === 0) {
+                            matchBadge.innerHTML = '<span style="color:#f56565;font-weight:600;">⚠️ No match</span>';
+                        } else if (matchingAccounts.length === 1) {
+                            accountSelect.value = matchingAccounts[0];
+                            matchBadge.innerHTML = '<span style="color:#48bb78;font-weight:600;">✅ Matched</span>';
+                        } else {
+                            matchBadge.innerHTML = '<span style="color:#ed8936;font-weight:600;">⚠️ Multiple</span>';
+                        }
+                    }
+
+                    const exchangeSelect = document.getElementById(`exchange-${index}`);
+                    if (exchangeSelect && txn.symbol) {
+                        const detected = this.detectExchangeFromSymbol(txn.symbol);
+                        if (detected) exchangeSelect.value = detected;
+                    }
+                });
+
+                document.getElementById('batch-save-btn').addEventListener('click', () => {
+                    this.saveBatchValidatedTransactions(modal);
+                });
+            }, 100);
+        });
+    },
+
+    /** Mark all rows accepted or rejected */
+    _batchSetAll: function(count, action) {
+        for (let i = 0; i < count; i++) {
+            if (action === 'accept') this.acceptTransaction(i);
+            else this.rejectTransaction(i);
+        }
+    },
+
+    /**
+     * Save all accepted transactions from the batch validation modal,
+     * including FX conversion. Marks each source file as processed.
+     */
+    saveBatchValidatedTransactions: async function(modal) {
+        const acceptedItems = [];
+        let allValid = true;
+
+        modal.transactionStates.forEach((state, index) => {
+            if (state !== 'accepted') return;
+
+            const accountId = document.getElementById(`account-${index}`).value;
+            if (!accountId) {
+                alert(`Transaction ${index + 1}: Please select an account before saving.`);
+                allValid = false;
+                return;
+            }
+
+            acceptedItems.push({
+                txn: {
+                    accountId,
+                    contractReference: document.getElementById(`contractRef-${index}`).value,
+                    date: document.getElementById(`date-${index}`).value,
+                    type: document.getElementById(`type-${index}`).value,
+                    symbol: document.getElementById(`symbol-${index}`).value.toUpperCase(),
+                    exchange: document.getElementById(`exchange-${index}`).value || null,
+                    company: modal.transactions[index].company ||
+                             document.getElementById(`symbol-${index}`).value.toUpperCase(),
+                    quantity: parseFloat(document.getElementById(`quantity-${index}`).value),
+                    price: parseFloat(document.getElementById(`price-${index}`).value),
+                    currency: document.getElementById(`currency-${index}`).value,
+                    fees: parseFloat(document.getElementById(`fees-${index}`).value) || 0,
+                    total: parseFloat(document.getElementById(`total-${index}`).value),
+                    settlementDate: modal.transactions[index].settlementDate ||
+                                    document.getElementById(`date-${index}`).value,
+                    accountLast4: modal.transactions[index].accountLast4
+                },
+                fileInfo: modal.indexToFile[index]
+            });
+        });
+
+        if (acceptedItems.length === 0) {
+            alert('No transactions accepted. Please accept at least one or click Cancel.');
+            return;
+        }
+        if (!allValid) return;
+
+        modal.remove();
+        UI.showLoading(`Saving ${acceptedItems.length} transaction(s)...`);
+
+        const processedFileIds = new Set();
+
+        try {
+            for (const { txn, fileInfo } of acceptedItems) {
+                UI.showLoading(`Saving ${txn.symbol} (${txn.date})…`);
+
+                try {
+                    await FX.fetchAllRatesForDate(txn.date);
+                } catch (e) {
+                    console.error(`FX fetch error for ${txn.date}:`, e);
+                    UI.showMessage(`Warning: Could not fetch FX rates for ${txn.date}`, 'warning');
+                }
+
+                let totalInBase = txn.total;
+                let priceInBase = txn.price;
+                let feesInBase = txn.fees;
+                let fxRate = 1.0;
+                let fxRateSource = 'none';
+
+                if (txn.currency !== CONFIG.baseCurrency) {
+                    fxRateSource = 'fallback';
+                    try {
+                        totalInBase = await FX.convertWithHistoricalRate(txn.total, txn.currency, CONFIG.baseCurrency, txn.date);
+                        priceInBase = await FX.convertWithHistoricalRate(txn.price, txn.currency, CONFIG.baseCurrency, txn.date);
+                        feesInBase = await FX.convertWithHistoricalRate(txn.fees, txn.currency, CONFIG.baseCurrency, txn.date);
+                        fxRate = txn.total > 0 ? totalInBase / txn.total : 1.0;
+                        fxRateSource = 'api';
+                    } catch (e) {
+                        console.error('FX conversion failed:', e);
+                        // fxRateSource stays 'fallback' so the UI warning is shown
+                    }
+                }
+
+                await Database.addTransaction({
+                    ...txn,
+                    baseCurrency: CONFIG.baseCurrency,
+                    priceInBase,
+                    feesInBase,
+                    totalInBase,
+                    fxRate,
+                    fxRateSource,
+                    fxRateDate: txn.date,
+                    broker: '',
+                    contractNoteFile: fileInfo.fileName,
+                    contractNoteId: fileInfo.fileId
+                });
+
+                processedFileIds.add(fileInfo.fileId);
+            }
+
+            for (const fileId of processedFileIds) {
+                await Database.markFileProcessed(fileId);
+            }
+
+            UI.hideLoading();
+            UI.showMessage(
+                `✅ Saved ${acceptedItems.length} transaction(s) from ${processedFileIds.size} file(s)`,
+                'success'
+            );
+
+            if (typeof UI !== 'undefined') {
+                UI.updateOverview();
+                UI.scanForNewFiles();
+            }
+
+        } catch (error) {
+            UI.hideLoading();
+            console.error('Error saving batch transactions:', error);
+            UI.showMessage('Error saving transactions: ' + error.message, 'error');
+        }
+    },
+
     showValidationUI: async function(transactions, sourceText, fileName) {
         return new Promise((resolve, reject) => {
             const modal = this.createValidationModal(transactions, sourceText, fileName, resolve, reject);
