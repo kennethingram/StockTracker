@@ -1068,9 +1068,9 @@ IMPORTANT:
                     }
 
                     const exchangeSelect = document.getElementById(`exchange-${index}`);
-                    if (exchangeSelect && txn.symbol) {
-                        const detected = this.detectExchangeFromSymbol(txn.symbol);
-                        if (detected) exchangeSelect.value = detected;
+                    if (exchangeSelect) {
+                        const exchange = txn.exchange || (txn.symbol ? this.detectExchangeFromSymbol(txn.symbol) : null);
+                        if (exchange) exchangeSelect.value = exchange;
                     }
                 });
 
@@ -1448,13 +1448,11 @@ IMPORTANT:
                     }
                 }
 
-                // Auto-detect exchange based on symbol
+                // Use Gemini's exchange first, fall back to symbol-based detection
                 const exchangeSelect = document.getElementById(`exchange-${index}`);
-                if (exchangeSelect && txn.symbol) {
-                    const detectedExchange = this.detectExchangeFromSymbol(txn.symbol);
-                    if (detectedExchange) {
-                        exchangeSelect.value = detectedExchange;
-                    }
+                if (exchangeSelect) {
+                    const exchange = txn.exchange || (txn.symbol ? this.detectExchangeFromSymbol(txn.symbol) : null);
+                    if (exchange) exchangeSelect.value = exchange;
                 }
                 
             });
