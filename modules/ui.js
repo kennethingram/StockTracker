@@ -2077,9 +2077,10 @@ const UI = {
             }
             
             // Build list of { symbol, exchange } for current holdings only
+            // Scan all transactions for exchange — first transaction may lack it if entered manually
             const symbolsWithExchanges = holdings.map(h => ({
                 symbol: h.symbol,
-                exchange: h.transactions[0]?.exchange || null
+                exchange: h.transactions.find(t => t.exchange)?.exchange || null
             }));
             
             console.log('Holdings to update:', symbolsWithExchanges);

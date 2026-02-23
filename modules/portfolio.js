@@ -501,8 +501,8 @@ const Portfolio = {
         
         // Process holdings in parallel
         const holdingPromises = holdings.map(async (holding) => {
-            // Get exchange from first transaction
-            const exchange = holding.transactions[0]?.exchange || null;
+            // Get exchange — scan all transactions, not just first (first may lack exchange field)
+            const exchange = holding.transactions.find(t => t.exchange)?.exchange || null;
             
             // Fetch price - returns { price, currency } object
             const currentPriceData = await Prices.getCurrentPrice(holding.symbol, exchange);

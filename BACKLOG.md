@@ -153,6 +153,24 @@ Priority levels: 🔴 High | 🟡 Medium | 🟢 Low
 
 ## 🔴 High Priority
 
+### Eulerpool API Integration
+**Status:** Pending evaluation
+**Effort:** 2-3 hours
+**Value:** Single API replaces Finnhub + Alpha Vantage; 10,000 req/day free; 90+ exchanges; 15-min delayed prices
+
+**Scope:**
+- Replace Finnhub (US/CA) and Alpha Vantage (UK/LSE) with a single Eulerpool endpoint
+- Update Cloudflare proxy (`/functions/api/prices.js`) to call Eulerpool
+- Remove `shouldUseAlphaVantage` routing logic and AV daily call counter
+- Keep frankfurter.app for FX (historical rates by date — Eulerpool FX endpoint is live-only)
+- Verify ticker+exchange lookup format (may require ISIN for some markets)
+
+**Notes:**
+- API key held by user (do not commit)
+- Confirm ticker-based lookup works for LSE before full migration
+
+---
+
 ### Batch PDF Processing
 **Status:** UI placeholder exists
 **Effort:** 2-3 hours

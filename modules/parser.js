@@ -333,17 +333,18 @@ Extract the following information and return ONLY valid JSON (no markdown, no ex
 {
   "transactions": [
     {
-      "contractReference": "contract/trade reference number from the document",
+      "contractReference": "contract note number or contract reference from the document — look for labels like 'Contract Note No.', 'Contract Number', 'Contract Ref', 'Deal Reference', not stock identifiers or ISIN",
       "date": "YYYY-MM-DD format",
       "settlementDate": "YYYY-MM-DD format if available, otherwise same as date",
       "type": "buy or sell",
       "symbol": "stock ticker symbol (e.g. AAPL, LGEN, RY)",
+      "isin": "ISIN code for the security — extract directly from the contract note if present (12-character alphanumeric, e.g. GB0002073146); otherwise infer from the ticker and exchange",
       "company": "company name",
       "quantity": number,
       "price": number (price per share as shown on the contract note),
       "priceCurrency": "3-letter currency code for the price per share — infer from the exchange or how the price is shown on the contract note (e.g. LSE stocks often quote in GBX/pence; NYSE/NASDAQ → USD; TSX → CAD; XETRA → EUR; ASX → AUD). If the symbol already makes the exchange clear (e.g. AAPL = NYSE = USD), use that.",
       "currency": "3-letter settlement currency code — the currency in which the TOTAL was paid, exactly as stated on the contract note",
-      "fees": number (commission/fees as shown),
+      "fees": number (SUM of ALL fees and charges — add together commission, stamp duty, PTM levy, credit notes, and any other charges or deductions shown on the contract note into a single total fees figure),
       "feesCurrency": "3-letter currency code for the commission/fees — as stated on the contract note; use the settlement currency if fees currency is not separately specified",
       "total": number (total settlement amount — the actual amount debited/credited to the account),
       "accountLast4": "last 4 digits of account number if present"
@@ -360,6 +361,7 @@ IMPORTANT:
 - "currency" MUST be the settlement currency (the currency in which the total amount was actually paid), always a 3-letter code (USD, CAD, GBP, EUR, AUD, CHF)
 - "priceCurrency" must be a 3-letter code: USD, CAD, GBP, GBX, EUR, AUD, CHF
 - "feesCurrency" must be a 3-letter code: USD, CAD, GBP, EUR, AUD, CHF
+- "isin" must be a 12-character alphanumeric code or null if cannot be determined
 - Type must be exactly "buy" or "sell"`;
 
         const requestBody = {
@@ -879,7 +881,7 @@ IMPORTANT:
             for (const fr of fileResults) {
                 bodyRows += `
                     <tr class="review-file-row">
-                        <td colspan="16">📄 ${fr.fileName}</td>
+                        <td colspan="17">📄 ${fr.fileName}</td>
                     </tr>`;
 
                 for (const txn of fr.transactions) {
@@ -914,6 +916,9 @@ IMPORTANT:
                             </td>
                             <td class="review-table-td" style="min-width:75px;">
                                 <input type="text" id="symbol-${globalIndex}" value="${txn.symbol || ''}" class="review-input" style="width:75px;">
+                            </td>
+                            <td class="review-table-td" style="min-width:110px;">
+                                <span class="review-acct-code" style="font-family:monospace;font-size:0.78em;">${txn.isin || '—'}</span>
                             </td>
                             <td class="review-table-td" style="min-width:90px;">
                                 <select id="exchange-${globalIndex}" class="review-select" style="width:90px;">
@@ -994,10 +999,11 @@ IMPORTANT:
                                         <th>Status</th>
                                         <th>Account *</th>
                                         <th>PDF Acc</th>
-                                        <th>Ref</th>
+                                        <th>Contract Note</th>
                                         <th>Date</th>
                                         <th>Type</th>
                                         <th>Symbol</th>
+                                        <th>ISIN</th>
                                         <th>Exchange</th>
                                         <th>Qty</th>
                                         <th>Price</th>
@@ -1132,6 +1138,7 @@ IMPORTANT:
                     fees: parseFloat(document.getElementById(`fees-${index}`).value) || 0,
                     feesCurrency: document.getElementById(`feesCurrency-${index}`).value,
                     total: parseFloat(document.getElementById(`total-${index}`).value),
+                    isin: modal.transactions[index].isin || null,
                     settlementDate: modal.transactions[index].settlementDate ||
                                     document.getElementById(`date-${index}`).value,
                     accountLast4: modal.transactions[index].accountLast4
@@ -1245,10 +1252,11 @@ IMPORTANT:
                         <th>Status</th>
                         <th>Account *</th>
                         <th>PDF Acc</th>
-                        <th>Contract Ref</th>
+                        <th>Contract Note</th>
                         <th>Date</th>
                         <th>Type</th>
                         <th>Symbol</th>
+                        <th>ISIN</th>
                         <th>Exchange</th>
                         <th>Quantity</th>
                         <th>Price</th>
@@ -1292,6 +1300,9 @@ IMPORTANT:
                     </td>
                     <td class="review-table-td" style="min-width:75px;">
                         <input type="text" id="symbol-${index}" value="${txn.symbol || ''}" class="review-input">
+                    </td>
+                    <td class="review-table-td" style="min-width:110px;">
+                        <span class="review-acct-code" style="font-family:monospace;font-size:0.78em;">${txn.isin || '—'}</span>
                     </td>
                     <td class="review-table-td" style="min-width:90px;">
                         <select id="exchange-${index}" class="review-select" style="width:90px;">
@@ -1552,6 +1563,7 @@ IMPORTANT:
                     fees: parseFloat(document.getElementById(`fees-${index}`).value) || 0,
                     feesCurrency: document.getElementById(`feesCurrency-${index}`).value,
                     total: parseFloat(document.getElementById(`total-${index}`).value),
+                    isin: modal.transactions[index].isin || null,
                     settlementDate: modal.transactions[index].settlementDate || document.getElementById(`date-${index}`).value,
                     accountLast4: modal.transactions[index].accountLast4,
                     sourceFile: modal.fileName
