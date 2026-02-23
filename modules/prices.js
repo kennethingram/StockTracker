@@ -197,7 +197,17 @@ const Prices = {
         const data = await response.json();
         
         if (data.Note && data.Note.includes('API call frequency')) {
-            console.error('Alpha Vantage API limit reached');
+            console.error('Alpha Vantage rate limit (Note):', data.Note);
+            return null;
+        }
+
+        if (data.Information) {
+            console.error('Alpha Vantage limit/info response (Information):', data.Information);
+            return null;
+        }
+
+        if (data['Global Quote'] && Object.keys(data['Global Quote']).length === 0) {
+            console.warn('Alpha Vantage returned empty Global Quote for', symbol, '— stock may not be available on free tier');
             return null;
         }
         
@@ -342,11 +352,12 @@ const Prices = {
     },
     
     /**
-     * Clear price cache
+     * Clear price cache (and failed fetch cache so refresh actually retries)
      */
     clearCache: function() {
         console.log('Clearing price cache');
         this.priceCache = {};
+        this.failedFetchCache = {};
     },
     
     /**
