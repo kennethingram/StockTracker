@@ -495,7 +495,7 @@
                         <ul>
                             <li><strong>AI Contract Parsing</strong> — Upload PDF contract notes to Google Drive; the app uses Gemini Vision to extract transactions automatically.</li>
                             <li><strong>Multi-Currency</strong> — Supports CAD, USD, GBP, EUR, AUD, CHF. Historical FX rates are locked in at transaction date; live rates update your current value.</li>
-                            <li><strong>Live Prices</strong> — Finnhub (US/CA) and Alpha Vantage (UK/LSE) provide real-time quotes. Click the refresh icon on Overview to update.</li>
+                            <li><strong>Live Prices</strong> — Real-time stock quotes fetched via a secure proxy. Click the refresh icon on Overview to update. Prices are cached and stored in your Drive database so they load on all devices.</li>
                             <li><strong>Analytics</strong> — P/L, ARR (Annualised Return Rate), ACB (Adjusted Cost Base), and total value calculated per holding and across the portfolio.</li>
                             <li><strong>Filters</strong> — Filter by account or account holder across Overview, Holdings, and Transactions. Filters are shared across tabs and can be saved as favourites.</li>
                         </ul>
@@ -504,20 +504,21 @@
                         <ol>
                             <li>Sign in with your Google account.</li>
                             <li>Go to <strong>Accounts</strong> and create at least one brokerage account.</li>
-                            <li>Go to <strong>Admin</strong> → set your Contract Notes folder in Google Drive.</li>
+                            <li>Go to <strong>Admin</strong> and set your Contract Notes folder in Google Drive.</li>
                             <li>Upload a PDF contract note to that folder.</li>
                             <li>Go to <strong>Import</strong> — the app auto-scans and shows unprocessed files. Click <em>Process</em>.</li>
-                            <li>Review the extracted transactions. Verify the <strong>Settlement Ccy</strong> field — this is the currency in which the total was paid and drives your cost basis (ACB). Accept or reject each row, then click Save.</li>
-                            <li>Return to <strong>Overview</strong> and click the refresh icon to load live prices. Prices are saved to your Drive database and will load on all your devices automatically after the first refresh.</li>
+                            <li>Review the extracted transactions in the validation screen. Verify the <strong>Settlement Ccy</strong> field — this is the currency in which the trade settled and drives your cost basis (ACB). Edit any fields, then click Save.</li>
+                            <li>Return to <strong>Overview</strong> and click the refresh icon to load live prices.</li>
                         </ol>
 
                         <h3>Tips</h3>
                         <ul>
                             <li>Use the currency selector on Overview and Holdings to view your portfolio in any supported currency.</li>
                             <li>The <strong>ACB</strong> (Adjusted Cost Base) reflects your average cost per share in the selected currency, based on the Settlement Currency of each trade.</li>
-                            <li>Free API limits apply — Finnhub: 60 calls/min; Alpha Vantage: 25 calls/day. When limits are hit, the last successfully fetched price is used. After a manual refresh, prices are stored in your Drive database and available on all devices.</li>
+                            <li>After a manual price refresh, prices are stored in your Drive database and available on all your devices automatically.</li>
                             <li>Export transactions as CSV from the Transactions page (download icon next to the title).</li>
                             <li>Download a full JSON backup from the <strong>Admin</strong> page at any time.</li>
+                            <li>Sessions expire after approximately one hour. If you see a "Session expired" message, just sign in again — your data is safe.</li>
                         </ul>
                     </div>
 
@@ -526,20 +527,36 @@
 
                         <h3>What data is used</h3>
                         <p>StockTracker accesses your Google account name and email (to display your profile), and your Google Drive (to store and retrieve your portfolio database file). No other Google data is accessed.</p>
-                        <p>Stock price data is fetched from Finnhub and Alpha Vantage via a secure server-side proxy. Your portfolio data is <strong>never</strong> sent to these services — only the ticker symbols you hold are used in API calls.</p>
+                        <p>Stock price data is fetched via a secure server-side proxy (Cloudflare Pages Function). Your portfolio data is <strong>never</strong> sent to price services — only the ticker symbols you hold are used in API calls.</p>
                         <p>Currency exchange rates are fetched from frankfurter.app (European Central Bank). No account data is involved in these calls.</p>
 
                         <h3>Where data is stored</h3>
-                        <p>All your portfolio data (transactions, accounts, settings) is stored in a single JSON file inside <strong>your own Google Drive</strong>, at <code>/StockTracker/stocktracker-transactions.json</code>. You own this file and can delete it at any time.</p>
-                        <p>Your browser's <code>localStorage</code> stores your session token and display preferences (currency, initials). Stock prices are cached locally for 15 minutes for fast access, and are also saved to your Drive database after each manual refresh so they load on all your devices.</p>
+                        <p>All your portfolio data (transactions, accounts, settings) is stored in a single JSON file inside <strong>your own Google Drive</strong>, at <code>/StockTracker/stock-tracker-database.json</code>. You own this file and can delete it at any time from your Drive.</p>
+                        <p>Your browser's <code>localStorage</code> stores your session token and display preferences (currency, initials). Stock prices are cached locally for 15 minutes and also saved to your Drive database after each manual refresh so they load on all your devices.</p>
 
                         <h3>How data moves</h3>
-                        <p>All communication uses HTTPS. API calls to Gemini, Finnhub, and Alpha Vantage are routed through a Cloudflare Pages Function — the API keys never leave the server. Your portfolio JSON travels only between your browser and your own Google Drive.</p>
+                        <p>All communication uses HTTPS. API calls to Gemini and price services are routed through a Cloudflare Pages Function — API keys never leave the server. Your portfolio JSON travels only between your browser and your own Google Drive.</p>
                         <p>There is no analytics, no tracking, and no data collection by StockTracker or any third party beyond the services listed above.</p>
                     </div>
                 </div>
 
             </main>
+        </div>
+
+        <!-- Confirmation Dialog (replaces native confirm() for dark-theme consistency) -->
+        <div id="confirm-modal" class="modal">
+            <div class="modal-content modal-sm">
+                <div class="modal-header">
+                    <h2 id="confirm-modal-title">Confirm</h2>
+                </div>
+                <div class="modal-body">
+                    <p id="confirm-modal-message" class="confirm-modal-message"></p>
+                </div>
+                <div class="confirm-modal-actions">
+                    <button class="btn-secondary" onclick="UI.hideConfirmModal()">Cancel</button>
+                    <button id="confirm-modal-ok-btn" class="btn-danger">Confirm</button>
+                </div>
+            </div>
         </div>
 
         <!-- Loading Overlay (shown during operations) -->

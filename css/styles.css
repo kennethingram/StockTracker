@@ -1080,6 +1080,24 @@ button {
 
 .modal-body { padding: 22px; }
 
+.modal-content.modal-sm {
+  max-width: 400px;
+}
+
+.confirm-modal-message {
+  color: var(--text-secondary);
+  margin: 0;
+  line-height: 1.6;
+}
+
+.confirm-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 16px 22px;
+  border-top: 1px solid var(--border);
+}
+
 /* ===================================
    Form Styles
    =================================== */

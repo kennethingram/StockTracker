@@ -473,7 +473,7 @@ const UI = {
         const listEl = document.getElementById('recent-transactions-list');
         
         if (!transactions || transactions.length === 0) {
-            listEl.innerHTML = '<p class="empty-state">No transactions yet. Click "Sync" to process contract notes.</p>';
+            listEl.innerHTML = '<p class="empty-state">No transactions yet. Go to <strong>Import</strong> to process contract notes.</p>';
             return;
         }
         
@@ -968,24 +968,33 @@ const UI = {
         URL.revokeObjectURL(url);
     },
 
-    clearAllData: async function() {
-        const first = confirm('⚠️ This will permanently delete ALL transactions, accounts, and settings.\n\nThis cannot be undone.');
-        if (!first) return;
-        const second = confirm('Second confirmation: delete everything and start fresh?');
-        if (!second) return;
-
-        UI.showLoading('Clearing all data...');
-        try {
-            Database.data = { transactions: [], accounts: {}, settings: {}, processedFiles: [] };
-            await Database.saveToDrive();
-            this.invalidateStatsCache();
-            UI.hideLoading();
-            UI.showMessage('All data cleared', 'success');
-            this.switchView('overview');
-        } catch (error) {
-            UI.hideLoading();
-            UI.showMessage('Error clearing data: ' + error.message, 'error');
-        }
+    clearAllData: function() {
+        this.showConfirm(
+            'Clear All Data',
+            'This will permanently delete ALL transactions, accounts, and settings. This cannot be undone.',
+            () => {
+                this.showConfirm(
+                    'Final Confirmation',
+                    'Are you absolutely sure? This is permanent and cannot be recovered.',
+                    async () => {
+                        UI.showLoading('Clearing all data...');
+                        try {
+                            Database.data = { transactions: [], accounts: {}, settings: {}, processedFiles: [] };
+                            await Database.saveToDrive();
+                            this.invalidateStatsCache();
+                            UI.hideLoading();
+                            UI.showMessage('All data cleared', 'success');
+                            this.switchView('overview');
+                        } catch (error) {
+                            UI.hideLoading();
+                            UI.showMessage('Error clearing data: ' + error.message, 'error');
+                        }
+                    },
+                    'Delete Everything'
+                );
+            },
+            'Continue'
+        );
     },
 
     exportTransactionsCSV: function() {
@@ -1046,6 +1055,28 @@ const UI = {
     /**
      * Show loading overlay
      */
+    /**
+     * Show a themed confirmation dialog (replaces native confirm())
+     * onConfirm is called if the user clicks the confirm button
+     * danger=true uses btn-danger (red), false uses btn-primary
+     */
+    showConfirm: function(title, message, onConfirm, confirmLabel = 'Confirm', danger = true) {
+        document.getElementById('confirm-modal-title').textContent = title;
+        document.getElementById('confirm-modal-message').textContent = message;
+        const okBtn = document.getElementById('confirm-modal-ok-btn');
+        okBtn.textContent = confirmLabel;
+        okBtn.className = danger ? 'btn-danger' : 'btn-primary';
+        okBtn.onclick = () => {
+            this.hideConfirmModal();
+            onConfirm();
+        };
+        document.getElementById('confirm-modal').classList.add('active');
+    },
+
+    hideConfirmModal: function() {
+        document.getElementById('confirm-modal').classList.remove('active');
+    },
+
      showLoading: function(message = 'Loading...') {
         const overlay = document.getElementById('loading-overlay');
         const messageEl = document.getElementById('loading-message');
@@ -1252,15 +1283,15 @@ const UI = {
         const holdersInput = document.getElementById('account-holders').value.trim();
         
         if (!name || !accountNumber || !accountType || !currency) {
-            alert('Please fill in all required fields');
+            this.showMessage('Please fill in all required fields', 'error');
             return;
         }
-        
+
         // Parse holders (comma-separated)
         const holders = holdersInput.split(',').map(h => h.trim()).filter(h => h.length > 0);
-        
+
         if (holders.length === 0) {
-            alert('Please enter at least one account holder');
+            this.showMessage('Please enter at least one account holder', 'error');
             return;
         }
 
@@ -1328,30 +1359,25 @@ const UI = {
         // Check if account has transactions
         const hasTransactions = data.transactions.some(t => t.accountId === accountId);
         
-        let confirmMessage = `Are you sure you want to delete "${account.name}"?`;
+        let confirmMessage = `Delete "${account.name}"?`;
         if (hasTransactions) {
-            confirmMessage += '\n\nWARNING: This account has transactions. Deleting it will NOT delete the transactions, but they will be orphaned.';
+            confirmMessage += ' This account has existing transactions — they will not be deleted but will become orphaned (no longer linked to an account).';
         }
-        
-        if (!confirm(confirmMessage)) {
-            return;
-        }
-        
-        this.showLoading('Deleting account...');
-        
-        try {
-            delete data.accounts[accountId];
-            await Database.saveToDrive();
-            
-            this.hideLoading();
-            this.showMessage('Account deleted successfully', 'success');
-            this.updateAccountsView();
-            
-        } catch (error) {
-            this.hideLoading();
-            console.error('Error deleting account:', error);
-            this.showMessage('Error deleting account', 'error');
-        }
+
+        this.showConfirm('Delete Account', confirmMessage, async () => {
+            this.showLoading('Deleting account...');
+            try {
+                delete data.accounts[accountId];
+                await Database.saveToDrive();
+                this.hideLoading();
+                this.showMessage('Account deleted successfully', 'success');
+                this.updateAccountsView();
+            } catch (error) {
+                this.hideLoading();
+                console.error('Error deleting account:', error);
+                this.showMessage('Error deleting account', 'error');
+            }
+        }, 'Delete');
     },
     
     /**
@@ -1630,7 +1656,7 @@ const UI = {
         const name = document.getElementById('favorite-name').value.trim();
         
         if (!name) {
-            alert('Please enter a name for this favorite');
+            this.showMessage('Please enter a name for this favourite', 'error');
             return;
         }
         
@@ -1697,32 +1723,25 @@ const UI = {
     /**
      * Delete a favorite
      */
-     deleteFavorite: async function(favoriteId) {
+     deleteFavorite: function(favoriteId) {
         const favorite = Database.getFavorite(favoriteId);
-        
         if (!favorite) return;
-        
-        if (!confirm(`Delete favorite "${favorite.name}"?`)) {
-            return;
-        }
-        
-        this.showLoading('Deleting favorite...');
-        
-        try {
-            await Database.deleteFavorite(favoriteId);
-            
-            this.hideLoading();
-            this.showMessage('Favorite deleted', 'success');
-            
-            this.populateFavorites('overview');
-            this.populateFavorites('holdings');
-            this.populateFavorites('transactions');
-            
-        } catch (error) {
-            this.hideLoading();
-            console.error('Error deleting favorite:', error);
-            this.showMessage('Error deleting favorite', 'error');
-        }
+
+        this.showConfirm('Delete Favourite', `Delete "${favorite.name}"?`, async () => {
+            this.showLoading('Deleting favourite...');
+            try {
+                await Database.deleteFavorite(favoriteId);
+                this.hideLoading();
+                this.showMessage('Favourite deleted', 'success');
+                this.populateFavorites('overview');
+                this.populateFavorites('holdings');
+                this.populateFavorites('transactions');
+            } catch (error) {
+                this.hideLoading();
+                console.error('Error deleting favourite:', error);
+                this.showMessage('Error deleting favourite', 'error');
+            }
+        }, 'Delete');
     },
 
     /**
@@ -1991,53 +2010,45 @@ const UI = {
     /**
      * Delete a transaction from within the edit modal (requires confirmation)
      */
-    deleteTransactionFromModal: async function(transactionId) {
-        const confirmed = confirm('Delete this transaction?\n\nThis cannot be undone. Are you sure?');
-        if (!confirmed) return;
-
-        UI.showLoading('Deleting transaction...');
-        try {
-            await Database.deleteTransaction(transactionId);
-            UI.hideLoading();
-            this.hideEditTransactionModal();
-            UI.showMessage('Transaction deleted', 'success');
-            this.invalidateStatsCache();
-            this.updateTransactions();
-            this.updateOverview();
-            this.updateHoldings();
-        } catch (error) {
-            UI.hideLoading();
-            UI.showMessage('Error deleting transaction: ' + error.message, 'error');
-        }
+    deleteTransactionFromModal: function(transactionId) {
+        this.showConfirm('Delete Transaction', 'This cannot be undone.', async () => {
+            UI.showLoading('Deleting transaction...');
+            try {
+                await Database.deleteTransaction(transactionId);
+                UI.hideLoading();
+                this.hideEditTransactionModal();
+                UI.showMessage('Transaction deleted', 'success');
+                this.invalidateStatsCache();
+                this.updateTransactions();
+                this.updateOverview();
+                this.updateHoldings();
+            } catch (error) {
+                UI.hideLoading();
+                UI.showMessage('Error deleting transaction: ' + error.message, 'error');
+            }
+        });
     },
 
     /**
      * Delete a transaction with confirmation
      */
-     deleteTransaction: async function(transactionId) {
-        const confirmed = confirm('⚠️ Are you sure you want to delete this transaction?\n\nThis action cannot be undone.');
-        
-        if (!confirmed) {
-            return;
-        }
-        
-        UI.showLoading('Deleting transaction...');
-        
-        try {
-            await Database.deleteTransaction(transactionId);
-
-            UI.hideLoading();
-            UI.showMessage('Transaction deleted successfully', 'success');
-            this.invalidateStatsCache();
-            this.updateTransactions();
-            this.updateOverview();
-            this.updateHoldings();
-            
-        } catch (error) {
-            UI.hideLoading();
-            console.error('Error deleting transaction:', error);
-            UI.showMessage('Error deleting transaction: ' + error.message, 'error');
-        }
+     deleteTransaction: function(transactionId) {
+        this.showConfirm('Delete Transaction', 'This cannot be undone.', async () => {
+            UI.showLoading('Deleting transaction...');
+            try {
+                await Database.deleteTransaction(transactionId);
+                UI.hideLoading();
+                UI.showMessage('Transaction deleted successfully', 'success');
+                this.invalidateStatsCache();
+                this.updateTransactions();
+                this.updateOverview();
+                this.updateHoldings();
+            } catch (error) {
+                UI.hideLoading();
+                console.error('Error deleting transaction:', error);
+                UI.showMessage('Error deleting transaction: ' + error.message, 'error');
+            }
+        });
     },
 
     /**
