@@ -341,7 +341,7 @@ Extract the following information and return ONLY valid JSON (no markdown, no ex
       "company": "company name",
       "quantity": number,
       "price": number (price per share as shown on the contract note),
-      "currency": "3-letter settlement currency code — the currency in which the TOTAL was paid (e.g. GBP for a UK LSE trade settled in pounds, even if the per-share price is quoted in pence/GBX)",
+      "currency": "3-letter settlement currency code — the currency in which the TOTAL was paid, exactly as stated on the contract note",
       "fees": number (commission/fees as shown),
       "total": number (total settlement amount — the actual amount debited/credited to the account),
       "accountLast4": "last 4 digits of account number if present"
@@ -355,8 +355,7 @@ IMPORTANT:
 - Return ONLY the JSON object, nothing else
 - Use null if a field cannot be determined
 - Ensure all numbers are actual numbers, not strings
-- "currency" MUST be the settlement currency (currency of the total amount paid), always 3-letter code (USD, CAD, GBP, EUR, AUD, CHF)
-- For UK LSE stocks: settlement currency is GBP (pounds), even if price per share is shown in pence (GBX)
+- "currency" MUST be the settlement currency (the currency in which the total amount was actually paid), always a 3-letter code (USD, CAD, GBP, EUR, AUD, CHF)
 - Type must be exactly "buy" or "sell"`;
 
         const requestBody = {

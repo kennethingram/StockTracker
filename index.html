@@ -502,15 +502,15 @@
                             <li>Go to <strong>Admin</strong> → set your Contract Notes folder in Google Drive.</li>
                             <li>Upload a PDF contract note to that folder.</li>
                             <li>Go to <strong>Import</strong> — the app auto-scans and shows unprocessed files. Click <em>Process</em>.</li>
-                            <li>Review the extracted transactions, correct any fields, and click <em>Accept</em>.</li>
-                            <li>Return to <strong>Overview</strong> and click the refresh icon to load live prices.</li>
+                            <li>Review the extracted transactions. Verify the <strong>Settlement Ccy</strong> field — this is the currency in which the total was paid and drives your cost basis (ACB). Accept or reject each row, then click Save.</li>
+                            <li>Return to <strong>Overview</strong> and click the refresh icon to load live prices. Prices are saved to your Drive database and will load on all your devices automatically after the first refresh.</li>
                         </ol>
 
                         <h3>Tips</h3>
                         <ul>
-                            <li>Use the <strong>Currency</strong> filter on Overview and Holdings to view your portfolio in any supported currency.</li>
-                            <li>The <strong>ACB</strong> (Adjusted Cost Base) column reflects your average cost per share based on the filtered view.</li>
-                            <li>Free API limits apply — Finnhub: 60 calls/min; Alpha Vantage: 25 calls/day. Prices fall back to last known values when limits are hit.</li>
+                            <li>Use the currency selector on Overview and Holdings to view your portfolio in any supported currency.</li>
+                            <li>The <strong>ACB</strong> (Adjusted Cost Base) reflects your average cost per share in the selected currency, based on the Settlement Currency of each trade.</li>
+                            <li>Free API limits apply — Finnhub: 60 calls/min; Alpha Vantage: 25 calls/day. When limits are hit, the last successfully fetched price is used. After a manual refresh, prices are stored in your Drive database and available on all devices.</li>
                             <li>Export transactions as CSV from the Transactions page (download icon next to the title).</li>
                             <li>Download a full JSON backup from the <strong>Admin</strong> page at any time.</li>
                         </ul>
@@ -526,7 +526,7 @@
 
                         <h3>Where data is stored</h3>
                         <p>All your portfolio data (transactions, accounts, settings) is stored in a single JSON file inside <strong>your own Google Drive</strong>, at <code>/StockTracker/stocktracker-transactions.json</code>. You own this file and can delete it at any time.</p>
-                        <p>Your browser's <code>localStorage</code> stores your session token, display preferences (currency, initials), and cached stock prices. This data stays on your device and is cleared when you sign out.</p>
+                        <p>Your browser's <code>localStorage</code> stores your session token and display preferences (currency, initials). Stock prices are cached locally for 15 minutes for fast access, and are also saved to your Drive database after each manual refresh so they load on all your devices.</p>
 
                         <h3>How data moves</h3>
                         <p>All communication uses HTTPS. API calls to Gemini, Finnhub, and Alpha Vantage are routed through a Cloudflare Pages Function — the API keys never leave the server. Your portfolio JSON travels only between your browser and your own Google Drive.</p>

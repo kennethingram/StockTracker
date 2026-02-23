@@ -106,12 +106,27 @@ const Prices = {
         }));
     },
 
-    // Retrieve last known price from localStorage, returned with stale flag
+    // Retrieve last known price — checks localStorage first, then Drive database (cross-device)
     getLastKnownPrice: function(symbol) {
+        // Fast path: localStorage (same device)
         const stored = localStorage.getItem(`price_last_${symbol}`);
-        if (!stored) return null;
-        const data = JSON.parse(stored);
-        return { price: data.price, currency: data.currency, stale: true, asOf: data.date };
+        if (stored) {
+            const data = JSON.parse(stored);
+            return { price: data.price, currency: data.currency, stale: true, asOf: data.date };
+        }
+
+        // Fallback: prices saved to Drive DB on last manual refresh (works across devices)
+        if (typeof Database !== 'undefined') {
+            const dbData = Database.getData();
+            const dbEntry = dbData?.settings?.lastPrices?.[symbol];
+            if (dbEntry) {
+                // Mirror to localStorage so subsequent checks are fast
+                localStorage.setItem(`price_last_${symbol}`, JSON.stringify(dbEntry));
+                return { price: dbEntry.price, currency: dbEntry.currency, stale: true, asOf: dbEntry.date };
+            }
+        }
+
+        return null;
     },
     
     /**

@@ -2062,17 +2062,38 @@ const UI = {
             
             // Clear cache to force fresh prices
             Prices.clearCache();
-            
+
             // Fetch all prices
             await Prices.getBatchPrices(symbolsWithExchanges);
-            
+
+            // Persist fetched prices to Drive DB so they load on any device
+            try {
+                const dbData = Database.getData();
+                if (!dbData.settings) dbData.settings = {};
+                if (!dbData.settings.lastPrices) dbData.settings.lastPrices = {};
+
+                symbolsWithExchanges.forEach(({ symbol, exchange }) => {
+                    const useAV = Prices.shouldUseAlphaVantage(exchange);
+                    const cacheKey = useAV
+                        ? Prices.formatSymbolForAlphaVantage(symbol, exchange)
+                        : Prices.formatSymbolForFinnhub(symbol, exchange);
+                    const lkp = localStorage.getItem(`price_last_${cacheKey}`);
+                    if (lkp) dbData.settings.lastPrices[cacheKey] = JSON.parse(lkp);
+                });
+
+                await Database.saveToDrive();
+                console.log('✅ Prices saved to Drive DB for cross-device access');
+            } catch (e) {
+                console.warn('Could not persist prices to Drive:', e);
+            }
+
             UI.hideLoading();
-            
+
             // Update status
             if (statusEl) {
                 statusEl.textContent = `✅ Updated ${holdings.length} holdings just now`;
             }
-            
+
             // Update cache info display
             this.updatePriceCacheInfo();
 
@@ -2082,7 +2103,7 @@ const UI = {
             // Refresh views
             this.updateOverview();
             this.updateHoldings();
-            
+
             UI.showMessage('Prices updated successfully', 'success');
             
         } catch (error) {
