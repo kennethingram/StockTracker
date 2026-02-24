@@ -152,18 +152,15 @@ Priority levels: 🔴 High | 🟡 Medium | 🟢 Low
 
 ---
 
-## 🔴 High Priority
+### Batch PDF Processing ✅
+**Status:** Complete (v1.5)
+**Completed:** February 2026
 
-### Batch PDF Processing
-**Status:** UI placeholder exists
-**Effort:** 2-3 hours
-**Value:** Process backlog of PDFs quickly
-
-**Scope:**
-- Functional "Process All" button
-- Queue system for multiple files
+**What was delivered:**
+- Functional "Process All" button on Import tab
+- Queue system processes files sequentially
 - Progress indicator (X of Y processed)
-- Error handling (continue on failure)
+- Error handling — continues on failure, reports errors at end
 - Summary report after completion
 
 ---
@@ -318,8 +315,7 @@ Priority levels: 🔴 High | 🟡 Medium | 🟢 Low
 ## Upcoming
 
 **Next:**
-- Batch PDF processing (most impactful remaining feature)
-- Portfolio charts
+- Portfolio charts and analytics
 
 **Later:**
 - Advanced filtering
