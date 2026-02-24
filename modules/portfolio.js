@@ -379,6 +379,43 @@ const Portfolio = {
     },
     
     /**
+     * Calculate total cost basis in a target currency using historical FX rates.
+     * Each buy transaction is converted at the rate on its own date.
+     * Sell transactions reduce cost proportionally.
+     * Cost basis never uses live FX rates.
+     */
+    calculateCostBasisInCurrency: async function(transactions, targetCurrency) {
+        let quantity = 0;
+        let totalCost = 0;
+
+        for (const txn of transactions) {
+            if (txn.type === 'buy') {
+                let costInTarget;
+                if (txn.currency === targetCurrency) {
+                    costInTarget = txn.total;
+                } else if (typeof FX !== 'undefined') {
+                    costInTarget = await FX.convertWithHistoricalRate(
+                        txn.total,
+                        txn.currency,
+                        targetCurrency,
+                        txn.date
+                    );
+                } else {
+                    costInTarget = txn.totalInBase || txn.total;
+                }
+                quantity += txn.quantity;
+                totalCost += costInTarget;
+            } else if (txn.type === 'sell') {
+                const avgCost = quantity > 0 ? totalCost / quantity : 0;
+                quantity -= txn.quantity;
+                totalCost -= avgCost * txn.quantity;
+            }
+        }
+
+        return Math.max(totalCost, 0);
+    },
+
+    /**
      * Calculate P/L and ARR for a single holding
      * currentPriceData can be a number or { price, currency } object
      * Uses FX conversion for current value
@@ -510,34 +547,29 @@ const Portfolio = {
             
             holding.performance = performance;
             
-            // Convert cost basis to selected currency if different from base
-            if (baseCurrency !== CONFIG.baseCurrency && typeof FX !== 'undefined') {
-                try {
-                    holding.costBasisConverted = await FX.convertCurrency(
-                        holding.totalCostInBase,
-                        CONFIG.baseCurrency,
-                        baseCurrency
-                    );
-                    console.log(`Converted cost basis: ${holding.totalCostInBase} ${CONFIG.baseCurrency} → ${holding.costBasisConverted.toFixed(2)} ${baseCurrency}`);
-                    
-                    // Recalculate P/L and ARR with converted cost basis
-                    if (performance.currentValueInBase !== null) {
-                        performance.gainLoss = performance.currentValueInBase - holding.costBasisConverted;
-                        performance.gainLossPercent = (performance.gainLoss / holding.costBasisConverted) * 100;
-                        
-                        // Recalculate ARR
-                        const firstDate = holding.transactions.reduce((earliest, txn) => {
-                            return txn.date < earliest ? txn.date : earliest;
-                        }, holding.transactions[0].date);
-                        const yearsHeld = this.calculateYearsHeld(firstDate);
-                        performance.arr = (performance.gainLoss / holding.costBasisConverted / yearsHeld) * 100;
-                    }
-                } catch (error) {
-                    console.error('Failed to convert cost basis:', error);
-                    holding.costBasisConverted = holding.totalCostInBase;
-                }
-            } else {
+            // Calculate cost basis in display currency using historical FX rates per transaction.
+            // This ensures cost basis never uses live FX rates.
+            try {
+                holding.costBasisConverted = await this.calculateCostBasisInCurrency(
+                    holding.transactions,
+                    baseCurrency
+                );
+                console.log(`Historical cost basis for ${holding.symbol}: ${holding.costBasisConverted.toFixed(2)} ${baseCurrency}`);
+            } catch (error) {
+                console.error('Failed to calculate historical cost basis:', error);
                 holding.costBasisConverted = holding.totalCostInBase;
+            }
+
+            // Recalculate P/L and ARR using the historically-correct cost basis
+            if (performance.currentValueInBase !== null) {
+                performance.gainLoss = performance.currentValueInBase - holding.costBasisConverted;
+                performance.gainLossPercent = (performance.gainLoss / holding.costBasisConverted) * 100;
+
+                const firstDate = holding.transactions.reduce((earliest, txn) => {
+                    return txn.date < earliest ? txn.date : earliest;
+                }, holding.transactions[0].date);
+                const yearsHeld = this.calculateYearsHeld(firstDate);
+                performance.arr = (performance.gainLoss / holding.costBasisConverted / yearsHeld) * 100;
             }
             
             return holding;

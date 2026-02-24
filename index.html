@@ -89,7 +89,6 @@
                 </div>
                 <div class="nav-menu">
                     <button class="nav-btn active" data-view="overview">Overview</button>
-                    <button class="nav-btn" data-view="holdings">Holdings</button>
                     <button class="nav-btn" data-view="transactions">Transactions</button>
                     <button class="nav-btn" data-view="accounts">Accounts</button>
                     <button class="nav-btn" data-view="sync">Import</button>
@@ -142,7 +141,6 @@
                 </div>
                 <div class="nav-sidebar-links">
                     <button class="nav-sidebar-btn active" data-view="overview">📊 Overview</button>
-                    <button class="nav-sidebar-btn" data-view="holdings">📦 Holdings</button>
                     <button class="nav-sidebar-btn" data-view="transactions">📋 Transactions</button>
                     <button class="nav-sidebar-btn" data-view="accounts">🏦 Accounts</button>
                     <button class="nav-sidebar-btn" data-view="sync">🔄 Import</button>
@@ -251,52 +249,6 @@
                         <div id="recent-transactions-list">
                             <p class="empty-state">No holdings yet. Click "Sync" to process contract notes.</p>
                         </div>
-                    </div>
-                </div>
-                
-                <!-- Holdings View -->
-                <div id="holdings-view" class="view">
-                    <h1>Current Holdings</h1>
-
-                    <!-- Filter Bar -->
-                    <div class="filter-bar">
-                        <div class="filter-trigger-wrap" id="holdings-filter-wrap">
-                            <button class="filter-trigger-btn" id="holdings-filter-btn" onclick="UI.toggleFilterPopover('holdings')">
-                                Filters <span class="filter-badge" id="holdings-filter-badge"></span>
-                            </button>
-                            <div class="filter-popover" id="holdings-filter-popover">
-                                <div class="filter-pop-group">
-                                    <div class="filter-pop-label">Accounts</div>
-                                    <div id="holdings-fp-accounts"></div>
-                                </div>
-                                <div class="filter-pop-sep"></div>
-                                <div class="filter-pop-group">
-                                    <div class="filter-pop-label">Holders</div>
-                                    <div id="holdings-fp-holders"></div>
-                                </div>
-                                <div class="filter-pop-footer">
-                                    <button class="filter-pop-clear" onclick="UI.clearFilters('holdings')">Clear all</button>
-                                    <button class="filter-pop-save" onclick="UI.showSaveFavoriteModal('holdings')">Save view ★</button>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="filter-chips" id="holdings-filter-chips"></div>
-                        <div class="filter-bar-spacer"></div>
-                        <select class="filter-currency-select" id="holdings-currency-select" onchange="UI.changeHoldingsCurrency(this.value)">
-                            <option value="CAD">CAD</option>
-                            <option value="USD">USD</option>
-                            <option value="GBP">GBP</option>
-                            <option value="EUR">EUR</option>
-                            <option value="AUD">AUD</option>
-                            <option value="CHF">CHF</option>
-                        </select>
-                    </div>
-
-                    <!-- Favorites Bar -->
-                    <div id="holdings-favorites-bar" class="favorites-bar"></div>
-                    
-                    <div id="holdings-list">
-                        <p class="empty-state">No holdings yet.</p>
                     </div>
                 </div>
                 
@@ -497,7 +449,7 @@
                             <li><strong>Multi-Currency</strong> — Supports CAD, USD, GBP, EUR, AUD, CHF. Historical FX rates are locked in at transaction date; live rates update your current value.</li>
                             <li><strong>Live Prices</strong> — Real-time stock quotes fetched via a secure proxy. Click the refresh icon on Overview to update. Prices are cached and stored in your Drive database so they load on all devices.</li>
                             <li><strong>Analytics</strong> — P/L, ARR (Annualised Return Rate), ACB (Adjusted Cost Base), and total value calculated per holding and across the portfolio.</li>
-                            <li><strong>Filters</strong> — Filter by account or account holder across Overview, Holdings, and Transactions. Filters are shared across tabs and can be saved as favourites.</li>
+                            <li><strong>Filters</strong> — Filter by account or account holder across Overview and Transactions. Filters can be saved as favourites.</li>
                         </ul>
 
                         <h3>Getting Started</h3>
@@ -513,7 +465,7 @@
 
                         <h3>Tips</h3>
                         <ul>
-                            <li>Use the currency selector on Overview and Holdings to view your portfolio in any supported currency.</li>
+                            <li>Use the currency selector on Overview to view your portfolio in any supported currency.</li>
                             <li>The <strong>ACB</strong> (Adjusted Cost Base) reflects your average cost per share in the selected currency, based on the Settlement Currency of each trade.</li>
                             <li>After a manual price refresh, prices are stored in your Drive database and available on all your devices automatically.</li>
                             <li>Export transactions as CSV from the Transactions page (download icon next to the title).</li>
@@ -548,6 +500,7 @@
             <div class="modal-content modal-sm">
                 <div class="modal-header">
                     <h2 id="confirm-modal-title">Confirm</h2>
+                    <button class="modal-close" onclick="UI.hideConfirmModal()">&times;</button>
                 </div>
                 <div class="modal-body">
                     <p id="confirm-modal-message" class="confirm-modal-message"></p>
@@ -555,6 +508,29 @@
                 <div class="confirm-modal-actions">
                     <button class="btn-secondary" onclick="UI.hideConfirmModal()">Cancel</button>
                     <button id="confirm-modal-ok-btn" class="btn-danger">Confirm</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Change Folder Modal -->
+        <div id="folder-modal" class="modal">
+            <div class="modal-content modal-sm">
+                <div class="modal-header">
+                    <h2>Change Contract Notes Folder</h2>
+                    <button class="modal-close" onclick="UI.hideFolderModal()">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label for="folder-id-input">Google Drive Folder ID</label>
+                        <input type="text" id="folder-id-input" placeholder="e.g. 1aBcDeFgHiJkLmNoPqRsTuVwXy">
+                        <small>Open the folder in Google Drive and copy the ID from the URL:<br>
+                            drive.google.com/drive/folders/<strong>FOLDER_ID</strong>
+                        </small>
+                    </div>
+                </div>
+                <div class="confirm-modal-actions">
+                    <button class="btn-secondary" onclick="UI.hideFolderModal()">Cancel</button>
+                    <button class="btn-primary" onclick="UI.saveFolderFromModal()">Save</button>
                 </div>
             </div>
         </div>

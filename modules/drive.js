@@ -84,45 +84,38 @@ const Drive = {
     },
     
    /**
-     * Select a folder from Google Drive
-     * Opens Google Picker to let user choose folder
+     * Open the styled folder selection modal
      */
-     selectFolder: async function() {
+     selectFolder: function() {
         if (!Auth.isAuthenticated()) {
             UI.showMessage('Please sign in first', 'error');
             return;
         }
-        
-        // For now, we'll use a simple prompt
-        // In production, you'd use Google Picker API
-        const folderId = prompt('Enter your Google Drive folder ID:\n\n(To get this: Open the folder in Drive, copy the ID from the URL)\n\nExample: https://drive.google.com/drive/folders/FOLDER_ID_HERE');
-        
-        if (!folderId) {
-            return;
-        }
-        
+        UI.showFolderModal();
+    },
+
+    /**
+     * Verify a folder ID and save it if valid
+     * Called by UI.saveFolderFromModal()
+     */
+    verifyAndSaveFolder: async function(folderId) {
         UI.showLoading('Verifying folder...');
-        
+
         try {
-            // Verify the folder exists and is accessible
             const folderInfo = await this.getFolderInfo(folderId);
-            
+
             if (folderInfo) {
-                // Wait for database to be ready
                 if (typeof Database !== 'undefined' && !Database.isLoaded) {
-                    console.log('Waiting for database to load...');
                     await Database.init();
                 }
-                
+
                 await this.saveFolderConfig(folderId);
                 UI.hideLoading();
                 UI.showMessage(`Folder "${folderInfo.name}" connected successfully`, 'success');
-                
-                // Update UI
-                if (typeof UI !== 'undefined' && UI.updateSyncView) {
-                    UI.updateSyncView();
-                }
-                
+
+                if (typeof UI !== 'undefined' && UI.updateSyncView) UI.updateSyncView();
+                if (typeof UI !== 'undefined' && UI.updateAdminView) UI.updateAdminView();
+
                 return folderId;
             } else {
                 UI.hideLoading();
@@ -130,7 +123,7 @@ const Drive = {
             }
         } catch (error) {
             UI.hideLoading();
-            console.error('Error selecting folder:', error);
+            console.error('Error verifying folder:', error);
             UI.showMessage('Error accessing folder: ' + error.message, 'error');
         }
     },

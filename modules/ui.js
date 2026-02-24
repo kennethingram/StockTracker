@@ -28,10 +28,6 @@ const UI = {
     // Track selected currency for Overview (session only)
     selectedOverviewCurrency: CONFIG.baseCurrency,
 
-    // Track selected currency for Holdings (session only)
-    selectedHoldingsCurrency: CONFIG.baseCurrency,
-
-    
     /**
      * Initialize the UI module
      * Set up navigation, event listeners
@@ -338,9 +334,6 @@ const UI = {
             case 'overview':
                 this.updateOverview();
                 break;
-            case 'holdings':
-                this.updateHoldings();
-                break;
             case 'transactions':
                 this.updateTransactions();
                 break;
@@ -514,169 +507,6 @@ const UI = {
             return;
         }
 
-        // Column header: Symbol | P/L | ARR | Value | QTY | Price | ACB
-        let html = `
-            <div class="holdings-col-header">
-                <span>Symbol</span>
-                <span class="right">P/L</span>
-                <span class="right">ARR</span>
-                <span class="right">Value (${baseCurrency})</span>
-                <span class="right">QTY</span>
-                <span class="right">Price</span>
-                <span class="right">ACB (${baseCurrency})</span>
-            </div>
-        `;
-
-        holdings.forEach(holding => {
-            const perf = holding.performance;
-            const hasPerformanceData = perf && perf.currentPrice !== null && perf.currentPrice !== undefined;
-            const missingHistoricalFX = holding.transactions.some(t =>
-                t.fxRateSource === 'fallback' ||
-                (t.currency !== baseCurrency && !t.fxRate)
-            );
-            const priceCurrency = (perf && perf.priceCurrency) || holding.currency;
-
-            let plClass = 'neutral', plSign = '';
-            if (perf && perf.gainLoss !== null) {
-                if (perf.gainLoss > 0)      { plClass = 'positive'; plSign = '+'; }
-                else if (perf.gainLoss < 0) { plClass = 'negative'; }
-            }
-
-            let arrClass = 'neutral', arrSign = '';
-            if (perf && perf.arr !== null) {
-                if (perf.arr > 0)      { arrClass = 'positive'; arrSign = '+'; }
-                else if (perf.arr < 0) { arrClass = 'negative'; }
-            }
-
-            const fxAlert = missingHistoricalFX
-                ? `<div class="holding-alert holding-alert-fx">⚠ Historical FX missing — cost basis may be inaccurate. Go to Admin → Fix Missing FX Rates</div>` : '';
-
-            const displayValue = hasPerformanceData && perf.currentValueInBase !== null
-                ? this.formatCurrency(perf.currentValueInBase, baseCurrency)
-                : this.formatCurrency(holding.costBasisConverted !== undefined ? holding.costBasisConverted : holding.totalCostInBase, baseCurrency);
-
-            const costBasis = holding.costBasisConverted ?? holding.totalCostInBase;
-            const acb = holding.quantity > 0
-                ? this.formatCurrency(costBasis / holding.quantity, baseCurrency)
-                : '—';
-
-            html += `
-                ${fxAlert}
-                <div class="holding-row ${plClass}">
-                    <div class="holding-identity">
-                        <div class="holding-symbol">${holding.symbol}</div>
-                        <div class="holding-company">${holding.company || 'Unknown'}</div>
-                    </div>
-                    <div class="holding-pl-col ${plClass}">
-                        <span class="holding-pl-amount">
-                            ${hasPerformanceData && perf.gainLoss !== null
-                                ? plSign + this.formatCurrency(Math.abs(perf.gainLoss), baseCurrency)
-                                : '—'}
-                        </span>
-                        <span class="holding-pl-pct">
-                            ${hasPerformanceData && perf.gainLossPercent !== null
-                                ? plSign + perf.gainLossPercent.toFixed(2) + '%' : ''}
-                        </span>
-                    </div>
-                    <div class="holding-arr-col ${arrClass}">
-                        ${hasPerformanceData && perf.arr !== null
-                            ? arrSign + perf.arr.toFixed(2) + '%' : '—'}
-                    </div>
-                    <div class="holding-value">${displayValue}</div>
-                    <div class="holding-qty">${holding.quantity.toLocaleString()}</div>
-                    <div class="holding-price">
-                        ${perf && perf.currentPrice
-                            ? this.formatCurrency(perf.currentPrice, priceCurrency) +
-                              `<span class="holding-price-currency">${priceCurrency}</span>` +
-                              (perf.priceStale ? `<span class="price-stale-label">Last close</span>` : '')
-                            : '<span class="price-not-loaded">— <span class="price-stale-label">refresh to load</span></span>'}
-                    </div>
-                    <div class="holding-acb">${acb}</div>
-                </div>
-            `;
-        });
-
-        listEl.innerHTML = html;
-    },
-
-    /**
-     * Change the currency for Overview display
-     */
-     changeOverviewCurrency: async function(currency) {
-        console.log('Changing Overview currency to:', currency);
-        
-        this.selectedOverviewCurrency = currency;
-        
-        // Refresh live FX rates
-        if (typeof FX !== 'undefined') {
-            try {
-                await FX.getLiveRates();
-            } catch (error) {
-                console.error('Failed to refresh FX rates:', error);
-            }
-        }
-        
-        // Reload Overview with new currency
-        await this.updateOverview();
-        
-        this.showMessage(`Currency changed to ${currency}`, 'success');
-    },
-
-    changeHoldingsCurrency: async function(currency) {
-        this.selectedHoldingsCurrency = currency;
-        this.invalidateStatsCache();
-        await this.updateHoldings();
-    },
-
-    onEditAccountChange: function() {
-        const accountSelect = document.getElementById('edit-txn-account');
-        const brokerField = document.getElementById('edit-txn-broker');
-        const accNumField = document.getElementById('edit-txn-account-number');
-        if (!accountSelect) return;
-        const data = Database.getData();
-        const acc = (data.accounts || {})[accountSelect.value];
-        if (brokerField) brokerField.value = acc ? (acc.broker || '') : '';
-        if (accNumField) accNumField.value = acc ? (acc.accountNumber || '') : '';
-    },
-
-    /**
-     * Update Holdings view
-     * Shows current positions
-     */
-     updateHoldings: async function() {
-        console.log('Updating holdings...');
-        
-        if (typeof Portfolio === 'undefined' || typeof Database === 'undefined') {
-            return;
-        }
-        
-        const data = Database.getData();
-        if (!data) return;
-        
-        // Get filtered transactions (shared filter state)
-        const filteredTxns = this.getFilteredTransactions();
-        
-        // Create filtered data object
-        const filteredData = {
-            ...data,
-            transactions: filteredTxns
-        };
-        
-        const baseCurrency = this.selectedHoldingsCurrency || CONFIG.baseCurrency;
-        const stats = await this._getStats(filteredData, baseCurrency);
-        const holdings = stats.holdings;
-
-        // Sync currency selector to current value
-        const currSel = document.getElementById('holdings-currency-select');
-        if (currSel) currSel.value = baseCurrency;
-
-        const listEl = document.getElementById('holdings-list');
-
-        if (holdings.length === 0) {
-            listEl.innerHTML = '<p class="empty-state">No holdings yet. Go to <strong>Import</strong> to process contract notes.</p>';
-            return;
-        }
-
         // Column header: Symbol | P/L | ARR | Value | QTY | Price | ACB | Cost
         let html = `
             <div class="holdings-col-header-detail">
@@ -693,6 +523,10 @@ const UI = {
 
         holdings.forEach(holding => {
             const perf = holding.performance || {};
+            const missingHistoricalFX = holding.transactions.some(t =>
+                t.fxRateSource === 'fallback' ||
+                (t.currency !== baseCurrency && !t.fxRate)
+            );
             const priceCurrency = perf.priceCurrency || holding.currency;
 
             let plClass = 'neutral', plSign = '';
@@ -702,6 +536,9 @@ const UI = {
             let arrClass = 'neutral', arrSign = '';
             if (perf.arr > 0)      { arrClass = 'positive'; arrSign = '+'; }
             else if (perf.arr < 0) { arrClass = 'negative'; }
+
+            const fxAlert = missingHistoricalFX
+                ? `<div class="holding-alert holding-alert-fx">⚠ Historical FX missing — cost basis may be inaccurate. Go to Admin → Fix Missing FX Rates</div>` : '';
 
             const priceDisplay = perf && perf.currentPrice
                 ? this.formatCurrency(perf.currentPrice, priceCurrency) +
@@ -715,6 +552,7 @@ const UI = {
                 : '—';
 
             html += `
+                ${fxAlert}
                 <div class="holding-row-detail ${plClass}">
                     <div class="holding-identity">
                         <div class="holding-symbol">${holding.symbol}</div>
@@ -750,7 +588,41 @@ const UI = {
 
         listEl.innerHTML = html;
     },
-    
+
+    /**
+     * Change the currency for Overview display
+     */
+     changeOverviewCurrency: async function(currency) {
+        console.log('Changing Overview currency to:', currency);
+        
+        this.selectedOverviewCurrency = currency;
+        
+        // Refresh live FX rates
+        if (typeof FX !== 'undefined') {
+            try {
+                await FX.getLiveRates();
+            } catch (error) {
+                console.error('Failed to refresh FX rates:', error);
+            }
+        }
+        
+        // Reload Overview with new currency
+        await this.updateOverview();
+        
+        this.showMessage(`Currency changed to ${currency}`, 'success');
+    },
+
+    onEditAccountChange: function() {
+        const accountSelect = document.getElementById('edit-txn-account');
+        const brokerField = document.getElementById('edit-txn-broker');
+        const accNumField = document.getElementById('edit-txn-account-number');
+        if (!accountSelect) return;
+        const data = Database.getData();
+        const acc = (data.accounts || {})[accountSelect.value];
+        if (brokerField) brokerField.value = acc ? (acc.broker || '') : '';
+        if (accNumField) accNumField.value = acc ? (acc.accountNumber || '') : '';
+    },
+
     /**
      * Update Transactions view
      * Shows all transactions
@@ -1068,6 +940,28 @@ const UI = {
         document.getElementById('confirm-modal').classList.remove('active');
     },
 
+    showFolderModal: function() {
+        const input = document.getElementById('folder-id-input');
+        if (input && typeof Drive !== 'undefined' && Drive.contractNotesFolderId) {
+            input.value = Drive.contractNotesFolderId;
+        }
+        document.getElementById('folder-modal').classList.add('active');
+    },
+
+    hideFolderModal: function() {
+        document.getElementById('folder-modal').classList.remove('active');
+    },
+
+    saveFolderFromModal: async function() {
+        const folderId = document.getElementById('folder-id-input').value.trim();
+        if (!folderId) {
+            this.showMessage('Please enter a folder ID', 'error');
+            return;
+        }
+        this.hideFolderModal();
+        await Drive.verifyAndSaveFolder(folderId);
+    },
+
      showLoading: function(message = 'Loading...') {
         const overlay = document.getElementById('loading-overlay');
         const messageEl = document.getElementById('loading-message');
@@ -1125,11 +1019,17 @@ const UI = {
      * Show a status message (toast notification)
      */
      showMessage: function(message, type = 'info') {
+        let container = document.getElementById('toast-container');
+        if (!container) {
+            container = document.createElement('div');
+            container.id = 'toast-container';
+            document.body.appendChild(container);
+        }
+
         const toast = document.createElement('div');
         toast.className = `toast toast-${type}`;
         toast.textContent = message;
-
-        document.body.appendChild(toast);
+        container.appendChild(toast);
 
         setTimeout(() => {
             toast.style.animation = 'slideOut 0.25s ease';
@@ -1991,7 +1891,6 @@ const UI = {
             this.invalidateStatsCache();
             this.updateTransactions();
             this.updateOverview();
-            this.updateHoldings();
         } catch (error) {
             UI.hideLoading();
             UI.showMessage('Error saving transaction: ' + error.message, 'error');
@@ -2012,7 +1911,6 @@ const UI = {
                 this.invalidateStatsCache();
                 this.updateTransactions();
                 this.updateOverview();
-                this.updateHoldings();
             } catch (error) {
                 UI.hideLoading();
                 UI.showMessage('Error deleting transaction: ' + error.message, 'error');
@@ -2033,7 +1931,6 @@ const UI = {
                 this.invalidateStatsCache();
                 this.updateTransactions();
                 this.updateOverview();
-                this.updateHoldings();
             } catch (error) {
                 UI.hideLoading();
                 console.error('Error deleting transaction:', error);
@@ -2126,7 +2023,6 @@ const UI = {
 
             // Refresh views
             this.updateOverview();
-            this.updateHoldings();
 
             UI.showMessage('Prices updated successfully', 'success');
             
