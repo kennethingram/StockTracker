@@ -206,13 +206,6 @@ button {
   letter-spacing: -0.01em;
 }
 
-/* Keep old h2 selector in case it lingers */
-.nav-brand h2 {
-  color: var(--accent);
-  font-size: 1.05em;
-  font-weight: 700;
-  letter-spacing: -0.01em;
-}
 
 .nav-menu {
   display: flex;
@@ -554,11 +547,7 @@ button {
 }
 
 /* ===================================
-<<<<<<< Updated upstream
    Holdings Table — compact Yahoo Finance rows
-=======
-   Holdings Table â€” compact Yahoo Finance rows
->>>>>>> Stashed changes
    =================================== */
 
 .holdings-table-wrap {
@@ -574,35 +563,6 @@ button {
   border-bottom: 1px solid var(--border);
 }
 
-/* Overview mini-table: Symbol | P/L | ARR | Value | QTY | Price | ACB */
-.holdings-col-header {
-  display: grid;
-  grid-template-columns: 2fr 1fr 1fr 1fr 1fr 1fr 1fr;
-  gap: 8px;
-  padding: 8px 18px;
-  background: var(--bg-elevated);
-  border-bottom: 1px solid var(--border);
-  font-size: 0.7em;
-  text-transform: uppercase;
-  letter-spacing: 0.6px;
-  font-weight: 600;
-  color: var(--text-muted);
-}
-
-.holdings-col-header .right { text-align: right; }
-
-.holding-row {
-  display: grid;
-  grid-template-columns: 2fr 1fr 1fr 1fr 1fr 1fr 1fr;
-  align-items: center;
-  padding: 11px 18px;
-  border-bottom: 1px solid var(--border);
-  gap: 12px;
-  transition: background 0.1s;
-}
-
-.holding-row:last-child { border-bottom: none; }
-.holding-row:hover { background: var(--bg-elevated); }
 
 .holding-identity .holding-symbol {
   font-weight: 700;
@@ -696,16 +656,6 @@ button {
   border-bottom: 1px solid var(--border);
 }
 
-/* ===================================
-   Full Holdings View
-   =================================== */
-
-#holdings-list {
-  background: var(--bg-surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  overflow: hidden;
-}
 
 /* Holdings detail: Symbol | P/L | ARR | Value | QTY | Price | ACB | Cost */
 .holding-row-detail {
@@ -829,11 +779,7 @@ button {
 }
 
 #recent-transactions-list {
-<<<<<<< Updated upstream
   /* no extra padding — holding rows handle it */
-=======
-  /* no extra padding â€” holding rows handle it */
->>>>>>> Stashed changes
 }
 
 /* ===================================
@@ -1626,21 +1572,16 @@ button {
   }
 
   /* Mobile holdings header: show simplified 2-col (Stock | P/L) */
-  .holdings-col-header,
   .holdings-col-header-detail {
     display: flex !important;
     padding: 6px 14px;
   }
   /* Hide all header spans except first (Stock) and second (P/L) */
-  .holdings-col-header span:nth-child(n+3),
   .holdings-col-header-detail span:nth-child(n+3) { display: none; }
-  .holdings-col-header span:first-child,
   .holdings-col-header-detail span:first-child { flex: 1; }
-  .holdings-col-header span:nth-child(2),
   .holdings-col-header-detail span:nth-child(2) { flex: 0 0 auto; }
 
   /* Reflow grid rows into flex cards */
-  .holding-row,
   .holding-row-detail {
     display: flex;
     flex-wrap: wrap;
@@ -1650,7 +1591,6 @@ button {
   }
 
   /* Row 1 left: identity */
-  .holding-row .holding-identity,
   .holding-row-detail .holding-identity {
     order: 1;
     flex: 1 1 auto;
@@ -1658,7 +1598,6 @@ button {
   }
 
   /* Row 1 right: P/L */
-  .holding-row .holding-pl-col,
   .holding-row-detail .holding-pl-col {
     order: 1;
     flex: 0 0 auto;
@@ -1666,7 +1605,6 @@ button {
   }
 
   /* Line break between row 1 and row 2 */
-  .holding-row::after,
   .holding-row-detail::after {
     content: '';
     flex: 1 1 100%;
@@ -1675,8 +1613,6 @@ button {
   }
 
   /* Row 2: price + value on their own mini-row */
-  .holding-row .holding-price,
-  .holding-row .holding-value,
   .holding-row-detail .holding-price,
   .holding-row-detail .holding-value {
     order: 3;
@@ -1690,9 +1626,6 @@ button {
   }
 
   /* Row 3: smaller secondary stats */
-  .holding-row .holding-arr-col,
-  .holding-row .holding-qty,
-  .holding-row .holding-acb,
   .holding-row-detail .holding-arr-col,
   .holding-row-detail .holding-qty,
   .holding-row-detail .holding-acb,
@@ -1715,7 +1648,6 @@ button {
   .holding-cost::before     { content: "Cost "; color: var(--text-muted); }
 
   /* Left border: skip on mobile (save space) */
-  .holding-row,
   .holding-row-detail { border-left: none; }
 
   .filter-bar { gap: 6px; }
@@ -2269,15 +2201,11 @@ select option {
    =================================== */
 
 /* Desktop: left border indicator for P/L direction */
-.holding-row,
 .holding-row-detail {
   border-left: 3px solid transparent;
 }
 
-.holding-row.positive,
 .holding-row-detail.positive { border-left-color: var(--positive); }
-
-.holding-row.negative,
 .holding-row-detail.negative { border-left-color: var(--negative); }
 
 /* Holding symbol bolder */

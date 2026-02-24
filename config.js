@@ -35,10 +35,6 @@ const CONFIG = {
     // Name of the database file stored in Google Drive
     databaseFileName: 'stocktracker-transactions.json',
     
-    // Netlify function URL for Claude API parsing
-    // This will be your deployed Netlify URL + /.netlify/functions/parse
-    parseApiUrl: 'http://localhost:8888/.netlify/functions/parse', // For local testing
-    
     // App settings
     appName: 'StockTracker',
     version: '1.0.0',
@@ -70,10 +66,6 @@ const CONFIG = {
         { code: 'AUD', symbol: 'A$', name: 'Australian Dollar' },
         { code: 'CHF', symbol: 'Fr', name: 'Swiss Franc' }
     ],
-    
-    // Free FX rate API (no key required for basic usage)
-    // Alternative: https://api.exchangerate.host/latest?base=USD
-    fxApiUrl: 'https://api.exchangerate-api.com/v4/latest/',
     
     // ===================================
     // ACCOUNT SETTINGS

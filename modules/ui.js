@@ -28,6 +28,9 @@ const UI = {
     // Track selected currency for Overview (session only)
     selectedOverviewCurrency: CONFIG.baseCurrency,
 
+    // Cached Map of currency code → symbol (built once on first formatCurrency call)
+    _currencySymbolMap: null,
+
     /**
      * Initialize the UI module
      * Set up navigation, event listeners
@@ -458,43 +461,6 @@ const UI = {
         // Update holdings cards (replaces recent transactions)
         this.updateOverviewHoldings(stats.holdings, baseCurrency);
     },
-    
-    /**
-     * Update recent transactions list
-     */
-     updateRecentTransactions: function(transactions) {
-        const listEl = document.getElementById('recent-transactions-list');
-        
-        if (!transactions || transactions.length === 0) {
-            listEl.innerHTML = '<p class="empty-state">No transactions yet. Go to <strong>Import</strong> to process contract notes.</p>';
-            return;
-        }
-        
-        // Get last 5 transactions
-        const recent = transactions.slice(-5).reverse();
-        
-        let html = '<table class="data-table">';
-        html += '<thead><tr>';
-        html += '<th>Date</th><th>Symbol</th><th>Type</th>';
-        html += '<th class="right">Qty</th><th class="right">Price</th><th class="right">Total</th>';
-        html += '</tr></thead><tbody>';
-
-        recent.forEach(txn => {
-            const badgeClass = txn.type === 'buy' ? 'badge-buy' : 'badge-sell';
-            html += '<tr>';
-            html += `<td class="muted">${txn.date}</td>`;
-            html += `<td class="bold">${txn.symbol}</td>`;
-            html += `<td><span class="${badgeClass}">${txn.type.toUpperCase()}</span></td>`;
-            html += `<td class="right">${txn.quantity}</td>`;
-            html += `<td class="right">${this.formatCurrency(txn.price, txn.currency)}</td>`;
-            html += `<td class="right bold">${this.formatCurrency(txn.total, txn.currency)}</td>`;
-            html += '</tr>';
-        });
-
-        html += '</tbody></table>';
-        listEl.innerHTML = html;
-    },
-    
     
     /**
      * Update holdings in Overview — compact Yahoo Finance style rows
@@ -996,10 +962,12 @@ const UI = {
         
         // Use provided currency, or fall back to base currency
         const currencyCode = currency || CONFIG.baseCurrency;
-        
-        // Get currency symbol from config
-        const currencyInfo = CONFIG.supportedCurrencies.find(c => c.code === currencyCode);
-        const symbol = currencyInfo ? currencyInfo.symbol : currencyCode;
+
+        // Build symbol map once on first call
+        if (!this._currencySymbolMap) {
+            this._currencySymbolMap = new Map(CONFIG.supportedCurrencies.map(c => [c.code, c.symbol]));
+        }
+        const symbol = this._currencySymbolMap.get(currencyCode) ?? currencyCode;
         
         // Format the number with 2 decimal places and thousands separator
         const formatted = Math.abs(amount).toLocaleString('en-US', {

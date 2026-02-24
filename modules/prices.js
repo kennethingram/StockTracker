@@ -229,22 +229,4 @@ const Prices = {
         };
     },
 
-    /**
-     * Format last updated time.
-     */
-    getLastUpdatedText: function(symbol) {
-        const cached = this.priceCache[symbol];
-        if (!cached) return 'Never';
-
-        const age = Date.now() - cached.timestamp;
-        const minutes = Math.floor(age / 1000 / 60);
-
-        if (minutes === 0) return 'Just now';
-        if (minutes === 1) return '1 minute ago';
-        if (minutes < 60) return `${minutes} minutes ago`;
-
-        const hours = Math.floor(minutes / 60);
-        if (hours === 1) return '1 hour ago';
-        return `${hours} hours ago`;
-    },
 };
