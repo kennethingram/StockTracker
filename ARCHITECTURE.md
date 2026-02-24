@@ -1,6 +1,6 @@
 # Stock Portfolio Tracker — Architecture
 
-**Last Updated:** February 23, 2026
+**Last Updated:** February 24, 2026
 
 ---
 
@@ -15,7 +15,7 @@
                              ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │             CLOUDFLARE PAGES (Static + Functions)                │
-│                  https://stock-tracker.pages.dev                 │
+│                  https://stocktracker-cit.pages.dev              │
 │                                                                  │
 │  ┌────────────────────────────────────────────────────────────┐ │
 │  │                    CLIENT-SIDE APP (SPA)                    │ │
@@ -35,7 +35,7 @@
 │  │              CLOUDFLARE PAGES FUNCTIONS (Proxy)             │ │
 │  │                                                            │ │
 │  │   /api/gemini   →  Google Gemini API  (AI parsing)         │ │
-│  │   /api/prices   →  Finnhub / Alpha Vantage  (prices)       │ │
+│  │   /api/prices   →  Yahoo Finance      (prices)             │ │
 │  │                                                            │ │
 │  │   API keys stored in Cloudflare env vars (server-side)     │ │
 │  └────────────────────────────────────────────────────────────┘ │
@@ -53,16 +53,16 @@
 │ - Contract Notes│ │ - Text Extract  │ │              │ │ - Live FX rates│
 └─────────────────┘ └─────────────────┘ └──────────────┘ └────────────────┘
                              │
-              ┌──────────────┴──────────────┐
-              ▼                             ▼
-┌──────────────────────┐        ┌──────────────────────┐
-│ FINNHUB API          │        │ ALPHA VANTAGE API     │
-│ (via proxy)          │        │ (via proxy)           │
-│                      │        │                      │
-│ - US/CA stock prices │        │ - UK stock prices     │
-│ - 60 calls/min free  │        │ - LSE stocks          │
-│                      │        │ - 25 calls/day free   │
-└──────────────────────┘        └──────────────────────┘
+              ┌──────────────┘
+              ▼
+┌──────────────────────────────┐
+│ YAHOO FINANCE (via proxy)    │
+│                              │
+│ - All exchanges (no key)     │
+│ - LSE, TSX, ASX, XETRA,     │
+│   NYSE, NASDAQ               │
+│ - Returns native currency    │
+└──────────────────────────────┘
 ```
 
 ---
@@ -80,15 +80,14 @@
 - **Cloudflare Pages** — Static file hosting
 - **Cloudflare Pages Functions** — Serverless proxy for API keys
   - `/functions/api/gemini.js` — Proxies Gemini API calls
-  - `/functions/api/prices.js` — Proxies Finnhub + Alpha Vantage calls
+  - `/functions/api/prices.js` — Proxies Yahoo Finance calls (CORS bypass)
   - Environment variables store secrets server-side (never exposed to browser)
 
 ### External APIs
 - **Google Drive API** — Database storage (JSON file in user's Drive)
 - **Google Gemini API** — AI-powered PDF parsing (Vision + Text)
 - **Google OAuth 2.0** — Authentication
-- **Finnhub API** — US/Canadian stock prices (via Cloudflare proxy)
-- **Alpha Vantage API** — UK stock prices / LSE (via Cloudflare proxy)
+- **Yahoo Finance** — Stock prices (unofficial API, no key, all exchanges, via Cloudflare proxy)
 - **frankfurter.app** — FX rates (European Central Bank, called directly — no key needed)
 
 ---
@@ -112,7 +111,7 @@
 │   ├── drive.js              # Drive API integration
 │   ├── parser.js             # AI-powered PDF parsing (Gemini) + FX fetching
 │   ├── portfolio.js          # Portfolio calculations & analytics (multi-currency)
-│   ├── prices.js             # Stock price management (Finnhub + Alpha Vantage)
+│   ├── prices.js             # Stock price management (Yahoo Finance)
 │   ├── fx.js                 # FX rate management (frankfurter.app)
 │   ├── currency.js           # Currency utilities
 │   └── ui.js                 # UI rendering, navigation, profile, admin, CSV export
@@ -120,7 +119,7 @@
 ├── functions/
 │   └── api/
 │       ├── gemini.js         # Cloudflare Function: Gemini AI proxy
-│       └── prices.js         # Cloudflare Function: Finnhub + Alpha Vantage proxy
+│       └── prices.js         # Cloudflare Function: Yahoo Finance proxy (CORS bypass)
 │
 ├── README.md
 ├── ARCHITECTURE.md            # This file
@@ -228,15 +227,18 @@ User accepts →
 
 ### 3. Portfolio Calculation Flow (with cache)
 ```
-Tab switch to Overview / Holdings →
+Tab switch to Overview →
 
 [Cache hit?]
   Yes → Return cached stats instantly (no API calls)
   No  →
     Load transactions → Filter by shared activeFilters →
     Group by symbol → Calculate positions →
-    Fetch current prices (Finnhub/AV via CF proxy) →
-    Convert to base currency (live FX) →
+    Fetch current prices (Yahoo Finance via CF proxy) →
+    Convert current value to display currency (live FX) →
+    Calculate cost basis per holding in display currency
+      → calculateCostBasisInCurrency(): each buy converted
+        at historical rate on its own transaction date →
     Calculate P/L, ARR →
     Store in _statsCache →
 
@@ -253,12 +255,15 @@ Tab switch to Overview / Holdings →
   Data:   ALL 6 currencies for that date
   Store:  database.fxRates[date]
   Usage:  Calculate totalInBase (cost basis) — NEVER CHANGES
+          Also used by calculateCostBasisInCurrency() for display
+          currency conversion — historical rates only, never live
 
 [Live FX — Portfolio Valuation]
   Source: frankfurter.app/latest?from=USD
   Cache:  1 hour TTL
   Store:  database.fxRates.live
-  Usage:  Convert current prices to selected/base currency
+  Usage:  Convert current prices to selected/base currency ONLY
+          Never used for cost basis or ACB
 ```
 
 ---
@@ -288,14 +293,13 @@ First tab switch: ~2-5s (API calls). Subsequent: instant.
 ```javascript
 // Single shared object — not per-view
 activeFilters: { accounts: [], holders: [] }
-// Applied identically across Overview, Holdings, Transactions
+// Applied identically across Overview and Transactions
 ```
 
 ### Price Caching
 - In-memory: 15 min TTL
 - localStorage fallback: last known price per symbol (persists across sessions)
 - Failed fetch cache: 5 min suppression (prevents hammering on API errors)
-- Alpha Vantage daily counter persisted in localStorage (survives page reload)
 
 ---
 
@@ -304,7 +308,7 @@ activeFilters: { accounts: [], holders: [] }
 ### Desktop Layout
 ```
 ┌───────────────────────────────────────────────────────┐
-│  [Logo] StockTracker  │ Ov. Hold. Txn. Acc. Imp. Admin │ [Avatar ▾] │
+│  [Logo] StockTracker  │ Ov. Txn. Acc. Imp. Admin Help │ [Avatar ▾] │
 └───────────────────────────────────────────────────────┘
 ```
 - Pill tab navigation (Gmail style)
@@ -337,9 +341,10 @@ closeProfileMenu()    // Close only
 ## Security Model
 
 ### API Key Protection
-- **Gemini, Finnhub, Alpha Vantage:** Stored in Cloudflare environment variables
+- **Gemini:** Stored in Cloudflare environment variables
 - Frontend calls `/api/gemini` and `/api/prices` (Cloudflare Functions)
 - Functions inject API keys server-side; browser never sees them
+- **Yahoo Finance:** No API key required — proxy exists only for CORS bypass
 - **Google OAuth:** Restricted redirect URLs
 - **frankfurter.app:** No key needed (public ECB data)
 - **Data:** Stored in user's own Google Drive (not on servers)
@@ -362,9 +367,8 @@ closeProfileMenu()    // Close only
 
 | API | Limit | Cache TTL | Fallback |
 |---|---|---|---|
-| Gemini | 100/hour | N/A (one-shot per PDF) | Show error |
-| Finnhub | 60/minute | 15 min | Last known price (localStorage) |
-| Alpha Vantage | 25/day | 15 min | Last known price (localStorage) |
+| Gemini | 20/day (free tier) | N/A (one-shot per PDF) | Show error |
+| Yahoo Finance | Unofficial — no hard limit | 15 min | Last known price (localStorage) |
 | frankfurter.app | Unlimited | Historical: permanent; Live: 1 hour | Stale rate shown |
 
 ---
@@ -379,16 +383,19 @@ amountInUSD = amount / rates.GBP;   // GBP to USD
 result = amountInUSD * rates.CAD;   // USD to CAD
 ```
 
+### Cost Basis Rule
+Cost basis (ACB) **never uses live FX rates**. `calculateCostBasisInCurrency(transactions, targetCurrency)` iterates each buy transaction and calls `FX.convertWithHistoricalRate()` at that transaction's date. Sells reduce cost proportionally. ACB per share is unaffected by sells.
+
 ### Holdings Display Example
 ```
-LGEN (Legal & General Group)  [LSE]
-├─ Current Price: £2.753 GBP (C$5.07 CAD)  ← native + live FX converted
-├─ Quantity: 9,000 shares
-├─ Current Value: C$45,659.51                ← live FX
-├─ Cost Basis: C$39,002.27                   ← historical FX (locked in)
-├─ ACB: C$4.33/share
-├─ P/L: +C$6,657.24 (+17.1%)
-└─ ARR: +37.2%
+BRK.B (Berkshire Hathaway)  [NYSE]
+├─ Current Price: $473.20 USD
+├─ Quantity: 360 shares
+├─ Current Value: £36,052.11                ← live FX (current price only)
+├─ Cost Basis: £80,858.30                   ← historical FX per transaction (locked in)
+├─ ACB: £224.61/share
+├─ P/L: -£44,806.19 (-55.4%)
+└─ ARR: -X%
 ```
 
 ---
@@ -396,7 +403,7 @@ LGEN (Legal & General Group)  [LSE]
 ## Deployment
 
 ### Live
-**URL:** `https://stock-tracker.pages.dev`
+**URL:** `https://stocktracker-cit.pages.dev`
 **Host:** Cloudflare Pages
 **Proxy:** Cloudflare Pages Functions (`/functions/api/`)
 **Deploy:** `git push origin main` → auto-deploy (~1 min)
@@ -404,4 +411,4 @@ LGEN (Legal & General Group)  [LSE]
 ### Local Development
 **URL:** `http://127.0.0.1:5500`
 **Method:** Python `python3 -m http.server 5500` or VS Code Live Server
-**Config:** `config.local.js` with real API keys (gitignored)
+**Config:** `config.local.js` with real API keys (gitignored). Local dev routes prices through the deployed Cloudflare proxy (`CONFIG.useProxy = true`) to avoid Yahoo Finance CORS restrictions.

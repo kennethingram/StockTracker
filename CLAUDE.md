@@ -10,7 +10,7 @@ A personal stock portfolio tracker. Client-side SPA (single-page app), no backen
 - **Storage:** JSON file in the user's own Google Drive
 - **Auth:** Google OAuth 2.0
 - **AI Parsing:** Google Gemini Vision/Text (PDF contract notes)
-- **Stock Prices:** Finnhub (US/CA) + Alpha Vantage (UK/LSE)
+- **Stock Prices:** Yahoo Finance (unofficial API, no key required)
 - **FX Rates:** frankfurter.app (European Central Bank, free, no key)
 - **Styling:** Custom dark theme CSS, no CSS framework
 
@@ -56,7 +56,7 @@ A personal stock portfolio tracker. Client-side SPA (single-page app), no backen
 Complete and working for personal use:
 - Multi-currency FX system (historical + live)
 - PDF contract note import (AI-powered)
-- Portfolio dashboard, holdings, transactions, accounts views
+- Portfolio dashboard (Overview with full holdings table), transactions, accounts views
 
 **Open items (from [BACKLOG.md](BACKLOG.md)):**
 1. Batch PDF processing

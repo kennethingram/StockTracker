@@ -641,7 +641,7 @@ const UI = {
         const listEl = document.getElementById('transactions-list');
         
         if (filteredTxns.length === 0) {
-            listEl.innerHTML = '<p class="empty-state">No transactions yet.</p>';
+            listEl.innerHTML = '<p class="empty-state">No transactions yet. Go to <strong>Import</strong> to process contract notes.</p>';
             return;
         }
         

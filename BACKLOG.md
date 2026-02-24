@@ -104,9 +104,8 @@ Priority levels: 🔴 High | 🟡 Medium | 🟢 Low
 **What was delivered:**
 - Portfolio stats cache — tab switching is instant after first load
 - Cache invalidated only when prices refresh or transactions change
-- Shared filter state across Overview, Holdings, Transactions
+- Shared filter state across Overview and Transactions
 - Auto-scan on Sync tab (throttled 60s, no manual scan needed)
-- Alpha Vantage daily counter persisted in localStorage
 
 ---
 
@@ -115,7 +114,7 @@ Priority levels: 🔴 High | 🟡 Medium | 🟢 Low
 **Completed:** February 2026
 
 **What was delivered:**
-- Filters persist across Overview / Holdings / Transactions tabs
+- Filters persist across Overview and Transactions tabs
 - Green dot (🟢) prefix on Account Holders filter options
 - Base currency setting moved to Admin page with localStorage persistence
 - Saved filter favorites work with shared filter state
@@ -138,38 +137,22 @@ Priority levels: 🔴 High | 🟡 Medium | 🟢 Low
 ---
 
 ### Real Stock Prices ✅
-**Status:** Complete (v1.0)
+**Status:** Complete (v1.4)
 **Completed:** February 2026
 
 **What was delivered:**
-- Hybrid API integration (Finnhub for US/CA, Alpha Vantage for UK)
+- Yahoo Finance (unofficial API — free, no key, all exchanges)
 - Auto-refresh mechanism (manual button)
-- Price caching (15 minutes) + last known price fallback (localStorage)
-- Exchange support (LSE, TSX, NYSE, NASDAQ)
-- Last updated timestamps
+- Price caching (15 minutes) + last known price fallback (localStorage + Drive)
+- Exchange support: LSE (`.L`), TSX (`.TO`), ASX (`.AX`), XETRA (`.DE`), NYSE, NASDAQ
+- Class-share dot→hyphen conversion (BRK.B → BRK-B)
+- GBp (pence) → GBP conversion (LSE prices)
+- Cloudflare proxy routes all requests to avoid CORS; local dev also uses proxy
 - Graceful error handling — always falls back to last known price
 
 ---
 
 ## 🔴 High Priority
-
-### Eulerpool API Integration
-**Status:** Pending evaluation
-**Effort:** 2-3 hours
-**Value:** Single API replaces Finnhub + Alpha Vantage; 10,000 req/day free; 90+ exchanges; 15-min delayed prices
-
-**Scope:**
-- Replace Finnhub (US/CA) and Alpha Vantage (UK/LSE) with a single Eulerpool endpoint
-- Update Cloudflare proxy (`/functions/api/prices.js`) to call Eulerpool
-- Remove `shouldUseAlphaVantage` routing logic and AV daily call counter
-- Keep frankfurter.app for FX (historical rates by date — Eulerpool FX endpoint is live-only)
-- Verify ticker+exchange lookup format (may require ISIN for some markets)
-
-**Notes:**
-- API key held by user (do not commit)
-- Confirm ticker-based lookup works for LSE before full migration
-
----
 
 ### Batch PDF Processing
 **Status:** UI placeholder exists
@@ -344,4 +327,4 @@ Priority levels: 🔴 High | 🟡 Medium | 🟢 Low
 
 ---
 
-**Last Updated:** February 23, 2026
+**Last Updated:** February 24, 2026
