@@ -75,6 +75,9 @@ const Prices = {
         // Strip any suffixes from previous API formats
         let clean = symbol.replace(/\.(L|TO|AX|DE|LON)$/i, '');
 
+        // Yahoo Finance uses hyphens for class-share notation (BRK.B → BRK-B, BF.B → BF-B)
+        clean = clean.replace(/\.([A-Z])$/i, '-$1');
+
         if (!exchange) return clean;
 
         switch (exchange.toUpperCase()) {
