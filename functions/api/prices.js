@@ -1,8 +1,9 @@
 // Cloudflare Pages Function — Stock Prices Proxy
-// Keeps Finnhub and Alpha Vantage API keys server-side. The browser never sees them.
+// Forwards requests to Yahoo Finance. No API key required.
 //
-// GET /api/prices?source=finnhub&symbol=AAPL
-// GET /api/prices?source=alphavantage&symbol=LGEN.LON
+// GET /api/prices?symbol=AAPL
+// GET /api/prices?symbol=LGEN.L
+// GET /api/prices?symbol=RY.TO
 
 function corsHeaders(request) {
     const origin = request.headers.get('Origin') || '*';
@@ -14,7 +15,7 @@ function corsHeaders(request) {
 }
 
 export async function onRequest(context) {
-    const { request, env } = context;
+    const { request } = context;
 
     // Handle CORS preflight
     if (request.method === 'OPTIONS') {
@@ -26,32 +27,18 @@ export async function onRequest(context) {
     }
 
     const url = new URL(request.url);
-    const source = url.searchParams.get('source');
     const symbol = url.searchParams.get('symbol');
 
-    if (!source || !symbol) {
-        return new Response('Missing source or symbol parameter', { status: 400 });
+    if (!symbol) {
+        return new Response('Missing symbol parameter', { status: 400 });
     }
 
-    let apiUrl;
+    const apiUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1d&range=1d`;
 
-    if (source === 'finnhub') {
-        if (!env.FINNHUB_API_KEY) {
-            return new Response('Server misconfigured: missing FINNHUB_API_KEY', { status: 500 });
-        }
-        apiUrl = `https://finnhub.io/api/v1/quote?symbol=${encodeURIComponent(symbol)}&token=${env.FINNHUB_API_KEY}`;
+    const response = await fetch(apiUrl, {
+        headers: { 'User-Agent': 'Mozilla/5.0' },
+    });
 
-    } else if (source === 'alphavantage') {
-        if (!env.ALPHA_VANTAGE_API_KEY) {
-            return new Response('Server misconfigured: missing ALPHA_VANTAGE_API_KEY', { status: 500 });
-        }
-        apiUrl = `https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=${encodeURIComponent(symbol)}&apikey=${env.ALPHA_VANTAGE_API_KEY}`;
-
-    } else {
-        return new Response('Invalid source. Use "finnhub" or "alphavantage"', { status: 400 });
-    }
-
-    const response = await fetch(apiUrl);
     const data = await response.json();
     return Response.json(data, {
         status: response.status,

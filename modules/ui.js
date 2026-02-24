@@ -876,14 +876,6 @@ const UI = {
             });
         }
 
-        // Alpha Vantage call counter
-        const avEl = document.getElementById('admin-av-calls');
-        if (avEl) {
-            const stored = localStorage.getItem('av_calls');
-            const data = stored ? JSON.parse(stored) : { count: 0 };
-            const today = new Date().toDateString();
-            avEl.textContent = (data.date === today ? data.count : 0);
-        }
     },
 
     saveBaseCurrency: function() {
@@ -897,7 +889,6 @@ const UI = {
 
     clearPriceCache: function() {
         if (typeof Prices !== 'undefined') Prices.clearCache();
-        localStorage.removeItem('av_calls');
         this.invalidateStatsCache();
         UI.showMessage('Price cache cleared', 'success');
         this.updateAdminView();
@@ -2109,10 +2100,7 @@ const UI = {
                 if (!dbData.settings.lastPrices) dbData.settings.lastPrices = {};
 
                 symbolsWithExchanges.forEach(({ symbol, exchange }) => {
-                    const useAV = Prices.shouldUseAlphaVantage(exchange);
-                    const cacheKey = useAV
-                        ? Prices.formatSymbolForAlphaVantage(symbol, exchange)
-                        : Prices.formatSymbolForFinnhub(symbol, exchange);
+                    const cacheKey = Prices.formatSymbolForYahoo(symbol, exchange);
                     const lkp = localStorage.getItem(`price_last_${cacheKey}`);
                     if (lkp) dbData.settings.lastPrices[cacheKey] = JSON.parse(lkp);
                 });
@@ -2166,7 +2154,7 @@ const UI = {
         
         const apiCallsEl = document.getElementById('price-api-calls');
         if (apiCallsEl) {
-            apiCallsEl.textContent = `AV: ${cacheInfo.alphaVantageCalls}/25 | FH: ${cacheInfo.finnhubCalls}/60`;
+            apiCallsEl.textContent = `Yahoo Finance · ${cacheInfo.symbols} symbols cached`;
         }
     },
 

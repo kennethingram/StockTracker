@@ -1,7 +1,6 @@
 // ===================================
 // PRICES MODULE
-// Hybrid approach: Finnhub + Alpha Vantage
-// Routes to appropriate API based on exchange
+// Single source: Yahoo Finance (unofficial API, no key required)
 // ===================================
 
 const Prices = {
@@ -15,75 +14,47 @@ const Prices = {
     failedFetchCache: {},
     FAILED_FETCH_CACHE_DURATION: 5 * 60 * 1000, // 5 minutes
 
-    // Rate limiting for Alpha Vantage (25/day, persisted in localStorage across page loads)
-    MAX_ALPHA_VANTAGE_CALLS_PER_DAY: 25,
-    
-    // Rate limiting for Finnhub
-    finnhubCallCount: 0,
-    finnhubResetTime: Date.now(),
-    MAX_FINNHUB_CALLS_PER_MINUTE: 60,
-    
     /**
-     * Get current price for a stock symbol
-     * Returns object with { price, currency }
+     * Get current price for a stock symbol.
+     * Returns { price, currency } or null.
      */
     getCurrentPrice: async function(symbol, exchange = null) {
         console.log('Getting price for:', symbol, exchange ? `(${exchange})` : '');
-        
-        // Determine which API to use based on exchange
-        const useAlphaVantage = this.shouldUseAlphaVantage(exchange);
-        
-        // Format symbol appropriately
-        const formattedSymbol = useAlphaVantage 
-            ? this.formatSymbolForAlphaVantage(symbol, exchange)
-            : this.formatSymbolForFinnhub(symbol, exchange);
-        
+
+        const yahooSymbol = this.formatSymbolForYahoo(symbol, exchange);
+
         // Check price cache first
-        const cacheKey = formattedSymbol;
-        const cached = this.getCachedPrice(cacheKey);
+        const cached = this.getCachedPrice(yahooSymbol);
         if (cached) {
             console.log('Using cached price for', symbol, ':', cached);
             return cached;
         }
 
         // Check failed fetch cache — skip API call if this symbol recently returned nothing
-        const recentFailure = this.failedFetchCache[cacheKey];
+        const recentFailure = this.failedFetchCache[yahooSymbol];
         if (recentFailure && Date.now() - recentFailure < this.FAILED_FETCH_CACHE_DURATION) {
             console.log('Skipping recent failed fetch for', symbol, '— trying last known price');
-            return this.getLastKnownPrice(cacheKey);
-        }
-
-        // Check rate limits — still fall back to last known price if blocked
-        if (useAlphaVantage && !this.checkAlphaVantageRateLimit()) {
-            console.warn('Alpha Vantage rate limit reached (25/day) — trying last known price');
-            return this.getLastKnownPrice(cacheKey);
-        }
-
-        if (!useAlphaVantage && !this.checkFinnhubRateLimit()) {
-            console.warn('Finnhub rate limit reached (60/min) — trying last known price');
-            return this.getLastKnownPrice(cacheKey);
+            return this.getLastKnownPrice(yahooSymbol);
         }
 
         try {
-            const priceData = useAlphaVantage
-                ? await this.fetchPriceFromAlphaVantage(formattedSymbol, exchange)
-                : await this.fetchPriceFromFinnhub(formattedSymbol, exchange);
+            const priceData = await this.fetchPriceFromYahoo(yahooSymbol);
 
             if (priceData) {
-                this.priceCache[cacheKey] = {
+                this.priceCache[yahooSymbol] = {
                     ...priceData,
                     timestamp: Date.now(),
-                    source: useAlphaVantage ? 'AlphaVantage' : 'Finnhub'
+                    source: 'Yahoo',
                 };
-                this.saveLastKnownPrice(cacheKey, priceData);
+                this.saveLastKnownPrice(yahooSymbol, priceData);
                 return priceData;
             }
 
             // Record failure so we don't retry for 5 minutes
-            this.failedFetchCache[cacheKey] = Date.now();
+            this.failedFetchCache[yahooSymbol] = Date.now();
 
             // Fall back to last known price from localStorage
-            const lastKnown = this.getLastKnownPrice(cacheKey);
+            const lastKnown = this.getLastKnownPrice(yahooSymbol);
             if (lastKnown) {
                 console.log('Using last known price for', symbol, '(stale, as of', lastKnown.asOf + ')');
                 return lastKnown;
@@ -92,8 +63,94 @@ const Prices = {
 
         } catch (error) {
             console.error('Error fetching price for', symbol, ':', error);
-            return this.getLastKnownPrice(cacheKey);
+            return this.getLastKnownPrice(yahooSymbol);
         }
+    },
+
+    /**
+     * Format ticker symbol for Yahoo Finance.
+     * Strips any existing suffixes first, then applies the correct one.
+     */
+    formatSymbolForYahoo: function(symbol, exchange) {
+        // Strip any suffixes from previous API formats
+        let clean = symbol.replace(/\.(L|TO|AX|DE|LON)$/i, '');
+
+        if (!exchange) return clean;
+
+        switch (exchange.toUpperCase()) {
+            case 'LSE':    return `${clean}.L`;
+            case 'TSX':    return `${clean}.TO`;
+            case 'ASX':    return `${clean}.AX`;
+            case 'XETRA':  return `${clean}.DE`;
+            case 'NYSE':
+            case 'NASDAQ':
+            default:       return clean;
+        }
+    },
+
+    /**
+     * Fetch price from Yahoo Finance.
+     * Via Cloudflare proxy in production; direct in local dev.
+     * Returns { price, currency } or null.
+     */
+    fetchPriceFromYahoo: async function(yahooSymbol) {
+        const url = CONFIG.useProxy
+            ? `${CONFIG.pricesProxyUrl}?symbol=${encodeURIComponent(yahooSymbol)}`
+            : `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(yahooSymbol)}?interval=1d&range=1d`;
+
+        console.log('Fetching price from Yahoo Finance for:', yahooSymbol);
+
+        const response = await fetch(url);
+        const data = await response.json();
+
+        const result = data.chart?.result?.[0];
+        if (!result) {
+            const errMsg = data.chart?.error?.description || 'No result';
+            console.warn('No Yahoo Finance data for', yahooSymbol, '—', errMsg);
+            return null;
+        }
+
+        const meta = result.meta;
+        let price = meta?.regularMarketPrice;
+        let currency = meta?.currency;
+
+        if (!price || price <= 0) {
+            console.warn('Yahoo Finance returned zero/null price for', yahooSymbol);
+            return null;
+        }
+
+        // Yahoo returns LSE prices in GBp (pence) — convert to GBP pounds
+        if (currency === 'GBp') {
+            price = price / 100;
+            currency = 'GBP';
+        }
+
+        console.log(`✅ Price for ${yahooSymbol} (Yahoo): ${price} ${currency}`);
+        return { price, currency };
+    },
+
+    /**
+     * Get multiple prices in batch.
+     */
+    getBatchPrices: async function(symbolsWithExchanges) {
+        console.log('Fetching batch prices for:', symbolsWithExchanges);
+
+        const results = {};
+
+        const promises = symbolsWithExchanges.map(item => {
+            const symbol   = typeof item === 'string' ? item : item.symbol;
+            const exchange = typeof item === 'object' ? item.exchange : null;
+
+            return this.getCurrentPrice(symbol, exchange)
+                .then(price => { results[symbol] = price; })
+                .catch(error => {
+                    console.error('Error fetching', symbol, ':', error);
+                    results[symbol] = null;
+                });
+        });
+
+        await Promise.all(promises);
+        return results;
     },
 
     // Persist last successfully fetched price to localStorage
@@ -102,7 +159,7 @@ const Prices = {
         localStorage.setItem(`price_last_${symbol}`, JSON.stringify({
             price: priceData.price,
             currency: priceData.currency,
-            date
+            date,
         }));
     },
 
@@ -120,7 +177,6 @@ const Prices = {
             const dbData = Database.getData();
             const dbEntry = dbData?.settings?.lastPrices?.[symbol];
             if (dbEntry) {
-                // Mirror to localStorage so subsequent checks are fast
                 localStorage.setItem(`price_last_${symbol}`, JSON.stringify(dbEntry));
                 return { price: dbEntry.price, currency: dbEntry.currency, stale: true, asOf: dbEntry.date };
             }
@@ -128,287 +184,34 @@ const Prices = {
 
         return null;
     },
-    
-    /**
-     * Determine if we should use Alpha Vantage for this exchange
-     */
-    shouldUseAlphaVantage: function(exchange) {
-        if (!exchange) return false;
-        
-        // Use Alpha Vantage for UK stocks only
-        const ukExchanges = ['LSE'];
-        return ukExchanges.includes(exchange.toUpperCase());
-    },
-    
-    /**
-     * Format symbol for Alpha Vantage
-     */
-    formatSymbolForAlphaVantage: function(symbol, exchange) {
-        let cleanSymbol = symbol.replace(/\.(L|TO|AX|DE)$/i, '');
-        
-        if (exchange && exchange.toUpperCase() === 'LSE') {
-            return `${cleanSymbol}.LON`; // Alpha Vantage uses .LON for London
-        }
-        
-        return cleanSymbol;
-    },
-    
-    /**
-     * Format symbol for Finnhub
-     */
-    formatSymbolForFinnhub: function(symbol, exchange) {
-        if (!exchange) return symbol;
-        
-        let cleanSymbol = symbol.replace(/\.(L|TO|AX|DE|LON)$/i, '');
-        
-        switch (exchange.toUpperCase()) {
-            case 'TSX':
-                return `${cleanSymbol}.TO`;
-            case 'ASX':
-                return `${cleanSymbol}.AX`;
-            case 'XETRA':
-                return `${cleanSymbol}.DE`;
-            case 'NYSE':
-            case 'NASDAQ':
-            default:
-                return cleanSymbol;
-        }
-    },
-    
-    /**
-     * Fetch price from Alpha Vantage
-     * Returns { price, currency }
-     */
-    fetchPriceFromAlphaVantage: async function(symbol, exchange) {
-        const apiKey = CONFIG.alphaVantageApiKey;
-        
-        if (!CONFIG.useProxy && (!apiKey || apiKey === 'YOUR_ALPHA_VANTAGE_API_KEY_HERE')) {
-            console.warn('Alpha Vantage API key not configured');
-            return null;
-        }
 
-        const url = CONFIG.useProxy
-            ? `/api/prices?source=alphavantage&symbol=${encodeURIComponent(symbol)}`
-            : `https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=${symbol}&apikey=${apiKey}`;
-        
-        console.log('Fetching price from Alpha Vantage for:', symbol);
-        
-        const response = await fetch(url);
-        const data = await response.json();
-        
-        if (data.Note && data.Note.includes('API call frequency')) {
-            console.error('Alpha Vantage rate limit (Note):', data.Note);
-            return null;
-        }
-
-        if (data.Information) {
-            console.error('Alpha Vantage limit/info response (Information):', data.Information);
-            return null;
-        }
-
-        if (data['Global Quote'] && Object.keys(data['Global Quote']).length === 0) {
-            console.warn('Alpha Vantage returned empty Global Quote for', symbol, '— stock may not be available on free tier');
-            return null;
-        }
-        
-        if (data['Global Quote'] && data['Global Quote']['05. price']) {
-            let price = parseFloat(data['Global Quote']['05. price']);
-            let currency = 'USD'; // Default
-            
-            // Determine currency based on exchange
-            if (exchange) {
-                switch (exchange.toUpperCase()) {
-                    case 'LSE':
-                        currency = 'GBP';
-                        // LSE prices are in pence (GBX), convert to pounds
-                        price = price / 100;
-                        console.log(`✅ Price for ${symbol} (Alpha Vantage): ${price} GBP (converted from pence)`);
-                        break;
-                    case 'TSX':
-                        currency = 'CAD';
-                        console.log(`✅ Price for ${symbol} (Alpha Vantage): ${price} CAD`);
-                        break;
-                    case 'ASX':
-                        currency = 'AUD';
-                        console.log(`✅ Price for ${symbol} (Alpha Vantage): ${price} AUD`);
-                        break;
-                    case 'XETRA':
-                    case 'EURONEXT':
-                        currency = 'EUR';
-                        console.log(`✅ Price for ${symbol} (Alpha Vantage): ${price} EUR`);
-                        break;
-                    default:
-                        console.log(`✅ Price for ${symbol} (Alpha Vantage): ${price} ${currency}`);
-                }
-            } else {
-                console.log(`✅ Price for ${symbol} (Alpha Vantage): ${price} ${currency}`);
-            }
-            
-            return { price, currency };
-        }
-        
-        console.warn('No price data from Alpha Vantage for', symbol);
-        return null;
-    },
-    
     /**
-     * Fetch price from Finnhub
-     * Returns { price, currency }
-     */
-    fetchPriceFromFinnhub: async function(symbol, exchange) {
-        const apiKey = CONFIG.finnhubApiKey;
-        
-        if (!CONFIG.useProxy && (!apiKey || apiKey === 'YOUR_FINNHUB_API_KEY_HERE')) {
-            console.warn('Finnhub API key not configured');
-            return null;
-        }
-
-        const url = CONFIG.useProxy
-            ? `/api/prices?source=finnhub&symbol=${encodeURIComponent(symbol)}`
-            : `https://finnhub.io/api/v1/quote?symbol=${symbol}&token=${apiKey}`;
-        
-        console.log('Fetching price from Finnhub for:', symbol);
-        
-        const response = await fetch(url);
-        const data = await response.json();
-        
-        if (data.c && data.c > 0) {
-            const price = parseFloat(data.c);
-            
-            // Determine currency based on exchange
-            let currency = 'USD'; // Default for US stocks
-            
-            if (exchange) {
-                switch (exchange.toUpperCase()) {
-                    case 'TSX':
-                        currency = 'CAD';
-                        break;
-                    case 'LSE':
-                        currency = 'GBP';
-                        break;
-                    case 'ASX':
-                        currency = 'AUD';
-                        break;
-                    case 'XETRA':
-                    case 'EURONEXT':
-                        currency = 'EUR';
-                        break;
-                    default:
-                        currency = 'USD';
-                }
-            }
-            
-            console.log(`✅ Price for ${symbol} (Finnhub): ${price} ${currency}`);
-            return { price, currency };
-        }
-        
-        console.warn('No price data from Finnhub for', symbol);
-        return null;
-    },
-    
-    /**
-     * Get multiple prices in batch
-     */
-    getBatchPrices: async function(symbolsWithExchanges) {
-        console.log('Fetching batch prices for:', symbolsWithExchanges);
-        
-        const results = {};
-        
-        const promises = symbolsWithExchanges.map(item => {
-            const symbol = typeof item === 'string' ? item : item.symbol;
-            const exchange = typeof item === 'object' ? item.exchange : null;
-            
-            return this.getCurrentPrice(symbol, exchange)
-                .then(price => {
-                    results[symbol] = price;
-                })
-                .catch(error => {
-                    console.error('Error fetching', symbol, ':', error);
-                    results[symbol] = null;
-                });
-        });
-        
-        await Promise.all(promises);
-        
-        return results;
-    },
-    
-    /**
-     * Check if we have a valid cached price
+     * Check if we have a valid cached price.
      */
     getCachedPrice: function(cacheKey) {
         const cached = this.priceCache[cacheKey];
-        
         if (!cached) return null;
-        
+
         const age = Date.now() - cached.timestamp;
         if (age > this.CACHE_DURATION) {
             delete this.priceCache[cacheKey];
             return null;
         }
-        
-        // Return full price data object (not just price)
+
         return { price: cached.price, currency: cached.currency };
     },
-    
+
     /**
-     * Clear price cache (and failed fetch cache so refresh actually retries)
+     * Clear price cache (and failed fetch cache so refresh actually retries).
      */
     clearCache: function() {
         console.log('Clearing price cache');
         this.priceCache = {};
         this.failedFetchCache = {};
     },
-    
-    /**
-     * Check Alpha Vantage rate limit (25 per day).
-     * Persisted in localStorage so the count survives page refreshes.
-     */
-    checkAlphaVantageRateLimit: function() {
-        const today = new Date().toDateString();
-        const stored = localStorage.getItem('av_calls');
-        let data = stored ? JSON.parse(stored) : { count: 0, date: today };
 
-        // Reset if it's a new day
-        if (data.date !== today) {
-            data = { count: 0, date: today };
-        }
-
-        if (data.count >= this.MAX_ALPHA_VANTAGE_CALLS_PER_DAY) {
-            console.warn(`Alpha Vantage daily limit reached (${data.count}/${this.MAX_ALPHA_VANTAGE_CALLS_PER_DAY})`);
-            return false;
-        }
-
-        data.count++;
-        localStorage.setItem('av_calls', JSON.stringify(data));
-        console.log(`Alpha Vantage calls: ${data.count}/${this.MAX_ALPHA_VANTAGE_CALLS_PER_DAY} today`);
-        return true;
-    },
-    
     /**
-     * Check Finnhub rate limit (60 per minute)
-     */
-    checkFinnhubRateLimit: function() {
-        const now = Date.now();
-        const minuteInMs = 60 * 1000;
-        
-        if (now - this.finnhubResetTime > minuteInMs) {
-            this.finnhubCallCount = 0;
-            this.finnhubResetTime = now;
-        }
-        
-        if (this.finnhubCallCount >= this.MAX_FINNHUB_CALLS_PER_MINUTE) {
-            return false;
-        }
-        
-        this.finnhubCallCount++;
-        console.log(`Finnhub calls: ${this.finnhubCallCount}/${this.MAX_FINNHUB_CALLS_PER_MINUTE} this minute`);
-        
-        return true;
-    },
-    
-    /**
-     * Get cache status info
+     * Get cache status info.
      */
     getCacheInfo: function() {
         const symbols = Object.keys(this.priceCache);
@@ -416,31 +219,29 @@ const Prices = {
             const age = Date.now() - this.priceCache[symbol].timestamp;
             return Math.floor(age / 1000 / 60);
         });
-        
+
         return {
             symbols: symbols.length,
             oldestAge: Math.max(...ages, 0),
-            alphaVantageCalls: this.alphaVantageCallCount,
-            finnhubCalls: this.finnhubCallCount
         };
     },
-    
+
     /**
-     * Format last updated time
+     * Format last updated time.
      */
     getLastUpdatedText: function(symbol) {
         const cached = this.priceCache[symbol];
         if (!cached) return 'Never';
-        
+
         const age = Date.now() - cached.timestamp;
         const minutes = Math.floor(age / 1000 / 60);
-        
+
         if (minutes === 0) return 'Just now';
         if (minutes === 1) return '1 minute ago';
         if (minutes < 60) return `${minutes} minutes ago`;
-        
+
         const hours = Math.floor(minutes / 60);
         if (hours === 1) return '1 hour ago';
         return `${hours} hours ago`;
-    }
+    },
 };

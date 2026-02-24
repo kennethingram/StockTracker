@@ -14,6 +14,10 @@ const CONFIG = {
     // When false, API calls go directly to the APIs using the keys below (local dev).
     useProxy: !IS_LOCAL,
 
+    // Base URL for the stock prices proxy.
+    // Relative in production (same origin). Overridden to absolute URL in config.local.js for local dev.
+    pricesProxyUrl: '/api/prices',
+
     // Google OAuth Settings
     // You'll get this Client ID from Google Cloud Console
     googleClientId: '562186675674-1lsb34607tcrl3a4q9vm4iv4qrueo09b.apps.googleusercontent.com',
@@ -21,9 +25,8 @@ const CONFIG = {
     // API keys — empty here (safe to commit).
     // In production: Cloudflare proxy injects keys server-side.
     // In local dev: set real values in config.local.js (gitignored).
+    // Note: stock prices use Yahoo Finance (no key required).
     geminiApiKey: '',
-    finnhubApiKey: '',
-    alphaVantageApiKey: '',
 
     // Google Drive folder where contract notes are stored
     // Leave empty for now - we'll set this up later
